@@ -30,12 +30,16 @@ jobs:
           prerelease: true
           target_commitish: ${{ github.sha }}
           body: |
-            Debug-signed APK from commit ${{ github.sha }}. It installs as its own app
-            (package `com.guardian.app.b${{ github.run_number }}`) and never updates another copy or itself.
-            Read the first screen of the app and the README before installing.
+            APK from commit ${{ github.sha }}, signed with the fixed Harbor key (package `com.guardian.app`).
 
+            First install (once):
             ```
-            adb shell dpm set-device-owner com.guardian.app.b${{ github.run_number }}/com.guardian.app.GuardianAdminReceiver
-            adb shell pm grant com.guardian.app.b${{ github.run_number }} android.permission.WRITE_SECURE_SETTINGS
+            adb install app-debug.apk
+            adb shell dpm set-device-owner com.guardian.app/com.guardian.app.GuardianAdminReceiver
+            adb shell pm grant com.guardian.app android.permission.WRITE_SECURE_SETTINGS
+            ```
+            Update over an existing fixed-key build (keeps Device Owner and settings):
+            ```
+            adb install -r app-debug.apk
             ```
           files: app/build/outputs/apk/debug/app-debug.apk

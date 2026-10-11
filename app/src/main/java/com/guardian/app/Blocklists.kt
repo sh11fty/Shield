@@ -165,6 +165,12 @@ object Blocklists {
     )
 
     /** Apps hidden only during the night curfew. */
+    /** Apps blocked the moment they open (overlay), as well as hidden. TikTok included. */
+    val OPEN_BLOCK_REGEX = Regex(
+        "telegram|nekogram|nekox|plusmessenger|challegram|exteragram|twitter|com\\.x\\.android|tweet|reddit|discord|musically|ugc\\.trill|tiktok|redditslide|infinityforreddit|baconreader",
+        RegexOption.IGNORE_CASE
+    )
+
     val CURFEW_APPS: List<String> = listOf(
         "com.instagram.android", "com.zhiliaoapp.musically", "com.ss.android.ugc.trill"
     )

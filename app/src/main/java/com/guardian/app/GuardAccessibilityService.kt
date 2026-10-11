@@ -52,6 +52,17 @@ class GuardAccessibilityService : AccessibilityService() {
         val pkg = e.packageName?.toString() ?: return
         if (pkg == packageName || pkg in IGNORED) return
         val type = e.eventType
+        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && isBlockedApp(pkg)) {
+            performGlobalAction(GLOBAL_ACTION_HOME)
+            val t = System.currentTimeMillis()
+            if (t - lastHitAt >= 4000) {
+                lastHitAt = t
+                Prefs.recordHit(this)
+                Alerts.event(this, "BLOCKED", "app opened: $pkg")
+                showBlock("${labelOf(pkg)} is blocked")
+            }
+            return
+        }
         val now = SystemClock.uptimeMillis()
         val gap = if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || type == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) 500L else 2500L
         if (scanning || now - lastScan < gap) return
@@ -61,6 +72,20 @@ class GuardAccessibilityService : AccessibilityService() {
             try { scan(pkg) } catch (_: Throwable) { } finally { scanning = false }
         }
     }
+
+    private val blockedCache = HashMap<String, Boolean>()
+
+    /** Package match first, then the app's visible label, so renamed mods are still caught. Cached per package. */
+    private fun isBlockedApp(pkg: String): Boolean = blockedCache.getOrPut(pkg) {
+        if (Blocklists.NEVER_HIDE_PREFIXES.any { pkg == it || pkg.startsWith(if (it.endsWith(".")) it else "$it.") }) return@getOrPut false
+        if (Prefs.list(this, Prefs.K_HIDE).contains(pkg)) return@getOrPut true
+        if (Blocklists.HIDE_PACKAGE_PREFIXES.any { pkg.startsWith(it) } || Blocklists.OPEN_BLOCK_REGEX.containsMatchIn(pkg)) return@getOrPut true
+        Blocklists.HIDE_LABEL_REGEX.containsMatchIn(labelOf(pkg))
+    }
+
+    private fun labelOf(pkg: String): String = runCatching {
+        packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+    }.getOrDefault(pkg)
 
     private fun refreshConfig() {
         val now = System.currentTimeMillis()

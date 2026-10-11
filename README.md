@@ -12,7 +12,7 @@
 > - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 > - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 > - Night curfew (default 23:00-06:00 UK time): the Instagram and TikTok apps are hidden. Browsers are not affected.
-> - Every build installs as a SEPARATE app with its own package name and display name. It never updates an older copy and never updates itself. Only one app can be Device Owner, so to move to a newer build you must first release the old one (PIN, then the next-day unlock) or factory reset.
+> - Builds share one package and one fixed signing key. A newer build only installs when you run `adb install -r` from a computer; it replaces the old one and keeps Device Owner. The app never updates itself. Builds made before the fixed key (b1 to b10) use other package names and cannot be updated: release them first (PIN, then the next-day unlock).
 > - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and takes the time from the internet (UK time) for the unlock window and curfew, so changing the phone's clock does nothing; if the UK time cannot be verified, everything stays locked. Installing from unknown sources stays allowed.
 >
 > WHAT IT MEANS FOR YOU
@@ -37,12 +37,12 @@ uninstalled or force-disabled from the normal UI. It blocks adult sites/keywords
 route, while leaving Android Settings usable (per your request; see "Strict mode" to change that).
 
 ## Build
-- GitHub: every push to `main` builds the APK and publishes it under **Releases** as a new release per build, "Build N" (installable from a phone). Each build is a separate app with its own package and name, and nothing ever auto-updates.
+- GitHub: every push to `main` builds the APK and publishes it under **Releases** as a new release per build, "Build N" (installable from a phone). Builds are signed with one fixed key under one package, so `adb install -r` updates in place. Nothing ever auto-updates.
 - Or Android Studio / `./gradlew assembleDebug` -> `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Install (one time)
 1. Install the APK. Remove **all accounts** from the phone (Settings > Accounts); re-add them afterwards.
-2. `<package>` is the build's package name, e.g. `com.guardian.app.b7` (the app shows it in its setup box and the release notes list the exact commands). Enable USB debugging (or Wireless debugging + the LADB app if you have no computer), then run:
+2. `<package>` is the build's package name, `com.guardian.app` (the app shows it in its setup box and the release notes list the exact commands). Enable USB debugging (or Wireless debugging + the LADB app if you have no computer), then run:
    ```
    adb shell dpm set-device-owner <package>/com.guardian.app.GuardianAdminReceiver
    adb shell pm grant <package> android.permission.WRITE_SECURE_SETTINGS

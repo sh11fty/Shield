@@ -300,7 +300,7 @@ WHAT IT DOES
 - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 - Night curfew (default 23:00-06:00 UK time): the Instagram and TikTok apps are hidden. Browsers are not affected.
-- Every build installs as a SEPARATE app with its own package name and display name. It never updates an older copy and never updates itself. Only one app can be Device Owner, so to move to a newer build you must first release the old one (PIN, then the next-day unlock) or factory reset.
+- Builds share one package and one fixed signing key. A newer build only installs when you run `adb install -r` from a computer; it replaces the old one and keeps Device Owner. The app never updates itself. Builds made before the fixed key (b1 to b10) use other package names and cannot be updated: release them first (PIN, then the next-day unlock).
 - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and takes the time from the internet (UK time) for the unlock window and curfew, so changing the phone's clock does nothing; if the UK time cannot be verified, everything stays locked. Installing from unknown sources stays allowed.
 
 WHAT IT MEANS FOR YOU
