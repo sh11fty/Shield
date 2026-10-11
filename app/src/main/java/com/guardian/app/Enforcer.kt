@@ -44,7 +44,7 @@ object Enforcer {
     fun apply(c: Context, why: String = ""): String = synchronized(lock) {
         val ctx = c.applicationContext
         val out = StringBuilder()
-        clockWatch(ctx)
+        TrustedTime.syncIfStale(ctx)
         out.append(ensureAccessibility(ctx)).append('\n')
         if (!isOwner(ctx)) {
             out.append("NOT device owner: hiding apps, VPN/DNS locks and browser policies are inactive.")
@@ -62,27 +62,6 @@ object Enforcer {
         Prefs.setLastReport(ctx, out.toString())
         RemoteList.refresh(ctx)
         out.toString()
-    }
-
-    // ---------- clock tamper detection (the clock itself is NOT locked) ----------
-    fun clockWatch(ctx: Context) {
-        val sp = ctx.getSharedPreferences("guardian_clock", Context.MODE_PRIVATE)
-        val wall = System.currentTimeMillis()
-        val el = SystemClock.elapsedRealtime()
-        val boot = Settings.Global.getInt(ctx.contentResolver, Settings.Global.BOOT_COUNT, -1)
-        val lw = sp.getLong("w", 0L)
-        val le = sp.getLong("e", 0L)
-        if (sp.getInt("b", -2) == boot && lw != 0L) {
-            val drift = (wall - lw) - (el - le)
-            if (kotlin.math.abs(drift) > 120_000L) {
-                Alerts.event(ctx, "CLOCK_CHANGED", "system clock moved by ${drift / 60000} min")
-                if (Prefs.readyAt(ctx) != 0L || Prefs.unlockedUntil(ctx) != 0L) {
-                    Prefs.setUnlock(ctx, 0L, 0L)
-                    Alerts.event(ctx, "UNLOCK_CANCELLED", "pending unlock cancelled because the clock was changed")
-                }
-            }
-        }
-        sp.edit().putLong("w", wall).putLong("e", el).putInt("b", boot).apply()
     }
 
     // ---------- accessibility self-heal ----------
@@ -166,8 +145,8 @@ object Enforcer {
         for (ai in apps) {
             val p = ai.packageName
             val label = labels[p] ?: p
-            if (Blocklists.HIDE_PACKAGE_PREFIXES.any { p.startsWith(it) }) add(p, "telegram/x")
-            else if (!isSystemApp(ai) && Blocklists.HIDE_LABEL_REGEX.containsMatchIn(label)) add(p, "telegram/x")
+            if (Blocklists.HIDE_PACKAGE_PREFIXES.any { p.startsWith(it) } || Blocklists.HIDE_PACKAGE_REGEX.containsMatchIn(p)) add(p, "blocked-app")
+            else if (!isSystemApp(ai) && Blocklists.HIDE_LABEL_REGEX.containsMatchIn(label)) add(p, "blocked-app")
         }
 
         // VPN: anything that declares a VpnService, plus name/package heuristics
@@ -199,7 +178,6 @@ object Enforcer {
         }.getOrDefault(emptySet())
         for (p in browsers) {
             if (p !in allow) add(p, "browser")
-            else if (curfew) add(p, "curfew")
         }
         // Chromium shells that only appear as VIEW handlers with a launcher icon and "browser" label
         for (p in viewers) {

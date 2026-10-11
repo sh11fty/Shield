@@ -102,12 +102,15 @@ object Blocklists {
     val HIDE_PACKAGE_PREFIXES: List<String> = listOf(
         "org.telegram.", "org.thunderdog.challegram", "nekox.", "tw.nekomimi.", "xyz.nextalone.", "com.exteragram.",
         "org.telegram.plus", "it.owlgram.", "ir.ilmili.", "com.twitter.", "com.x.android", "tv.periscope.",
-        "app.nicegram", "org.forkgram", "com.nekogram"
+        "app.nicegram", "org.forkgram", "com.nekogram", "com.reddit.", "com.discord"
     )
+
+    /** Reddit and Discord apps/clients (Reddit in a browser is allowed). */
+    val HIDE_PACKAGE_REGEX = Regex("reddit|discord", RegexOption.IGNORE_CASE)
 
     /** Apps hidden when their label matches. Case-insensitive. */
     val HIDE_LABEL_REGEX = Regex(
-        "^x$|^x lite$|\\btwitter\\b|\\btelegram\\b|nekogram|challegram|exteragram|nagram|nicegram|\\bowlgram\\b|\\bunigram\\b|\\bplus messenger\\b",
+        "^x$|^x lite$|\\btwitter\\b|\\btelegram\\b|nekogram|challegram|exteragram|nagram|nicegram|\\bowlgram\\b|\\bunigram\\b|\\bplus messenger\\b|reddit|discord",
         RegexOption.IGNORE_CASE
     )
 
@@ -154,10 +157,9 @@ object Blocklists {
         "com.android.cellbroadcast", "com.google.android.cellbroadcast"
     )
 
-    /** Extra apps hidden only during curfew (in addition to every browser). */
+    /** Apps hidden only during the night curfew. */
     val CURFEW_APPS: List<String> = listOf(
-        "com.reddit.frontpage", "com.instagram.android", "com.snapchat.android", "com.zhiliaoapp.musically",
-        "com.ss.android.ugc.trill", "com.discord"
+        "com.instagram.android", "com.zhiliaoapp.musically", "com.ss.android.ugc.trill"
     )
 
     /** Downloaded lists can contain mistakes; these are never blocked by them. */

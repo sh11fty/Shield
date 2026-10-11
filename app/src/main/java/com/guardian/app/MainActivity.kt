@@ -49,7 +49,13 @@ class MainActivity : Activity() {
         if (!Prefs.introDone(this)) showIntro() else buildMain()
     }
 
-    override fun onResume() { super.onResume(); if (::heroTitle.isInitialized) refresh() }
+    override fun onResume() {
+        super.onResume()
+        if (::heroTitle.isInitialized) {
+            refresh()
+            Thread { TrustedTime.syncIfStale(this); runOnUiThread { refresh() } }.start()
+        }
+    }
 
     // ---------------------------------------------------------------- intro
     private fun showIntro() {
@@ -103,6 +109,9 @@ class MainActivity : Activity() {
         status.addView(Ui.button(this, "Apply protections now") {
             Enforcer.applyAsync(this, "manual"); toast("Applying…"); status.postDelayed({ refresh() }, 1500)
         }, Ui.lp(this, 10))
+        status.addView(Ui.button(this, "Check UK time now", Ui.Kind.SECONDARY) {
+            Thread { val ok = TrustedTime.sync(this); runOnUiThread { toast(if (ok) "UK time verified" else "Couldn't reach a time server"); refresh() } }.start()
+        }, Ui.lp(this, 8))
         status.addView(Ui.button(this, "Open accessibility settings", Ui.Kind.SECONDARY) {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }, Ui.lp(this, 8))
@@ -116,7 +125,7 @@ class MainActivity : Activity() {
         pinField = Ui.input(this, "PIN (4+ digits)", "", InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD)
         unlock.addView(pinField)
         unlock.addView(Ui.button(this, "Set PIN") { toast(Gate.setPin(this, pinField.text.toString())); refresh() }, Ui.lp(this, 10))
-        unlock.addView(Ui.button(this, "Request unlock (opens 14:00 tomorrow, 5 min)", Ui.Kind.SECONDARY) {
+        unlock.addView(Ui.button(this, "Request unlock (14:00 UK tomorrow, 5 min)", Ui.Kind.SECONDARY) {
             toast(Gate.requestUnlock(this, pinField.text.toString())); refresh()
         }, Ui.lp(this, 8))
         unlock.addView(Ui.button(this, "Lock again now", Ui.Kind.SECONDARY) { Gate.lock(this); refresh() }, Ui.lp(this, 8))
@@ -126,7 +135,7 @@ class MainActivity : Activity() {
         val set = Ui.column(this)
         swStrict = Ui.toggle(this, "Strict mode: block factory reset, USB debugging and force-stop", Prefs.strict(this))
         swShield = Ui.toggle(this, "Self-shield: kick out of Settings pages showing this app", Prefs.shield(this))
-        swCurfew = Ui.toggle(this, "Night curfew: hide all browsers + curfew apps", Prefs.curfewOn(this))
+        swCurfew = Ui.toggle(this, "Night curfew: hide Instagram and TikTok apps (UK time)", Prefs.curfewOn(this))
         set.addView(swStrict); set.addView(swShield); set.addView(swCurfew)
         set.addView(Ui.label(this, "Curfew hours (0-23)"))
         val hours = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -183,7 +192,7 @@ class MainActivity : Activity() {
         // release / uninstall
         val danger = Ui.card(this).apply { background = Ui.rounded(this@MainActivity, Ui.CARD, 18, Ui.BAD) }
         danger.addView(Ui.title(this, "Release & uninstall"))
-        danger.addView(Ui.body(this, "The only way to uninstall. It works only inside the 5-minute window at 14:00, after you requested an unlock with your PIN the day before."), Ui.lp(this, 6, 10))
+        danger.addView(Ui.body(this, "The only way to uninstall. It works only inside the 5-minute window at 14:00 UK time, after you requested an unlock with your PIN the day before."), Ui.lp(this, 6, 10))
         danger.addView(Ui.button(this, "Release & uninstall", Ui.Kind.DANGER) { releaseAndUninstall() })
         root.addView(danger, Ui.lp(this, 0, 12))
 
@@ -207,6 +216,10 @@ class MainActivity : Activity() {
         statusBox.addView(Ui.dotRow(this, owner, "Device owner", if (owner) "Uninstall blocked, VPN and DNS locked" else "Run the setup commands below"))
         statusBox.addView(Ui.dotRow(this, a11y, "Screen scanner", if (a11y) "Accessibility service running" else "Tap Apply, or enable it in accessibility settings"))
         statusBox.addView(Ui.dotRow(this, dnsOk, "Private DNS", if (dnsOk) Prefs.dnsHost(this) else "Not locked yet"))
+        val ukNow = TrustedTime.now(this)
+        val ukText = if (ukNow == null) "Not verified. Connect to the internet." else
+            java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.UK).apply { timeZone = TrustedTime.UK }.format(java.util.Date(ukNow))
+        statusBox.addView(Ui.dotRow(this, ukNow != null, "UK time (internet)", ukText))
         statusBox.addView(Ui.dotRow(this, null, RemoteList.status(this).removePrefix("Remote list: ").replaceFirstChar { it.uppercase() }, "Online blocklist"))
         val report = Prefs.lastReport(this).lines().filter { it.isNotBlank() }
         if (report.isNotEmpty()) statusBox.addView(Ui.body(this, report.joinToString("\n"), true, 12f), Ui.lp(this, 8))
@@ -217,7 +230,7 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- actions
     private fun releaseAndUninstall() {
-        if (!Gate.isUnlocked(this)) { toast("Locked. Request an unlock with your PIN; the window opens at 14:00 the next day for 5 minutes."); return }
+        if (!Gate.isUnlocked(this)) { toast("Locked. Request an unlock with your PIN; the window opens at 14:00 UK time the next day for 5 minutes."); return }
         AlertDialog.Builder(this)
             .setTitle("Release and uninstall?")
             .setMessage("This removes all protection and opens the uninstall prompt.")
@@ -280,18 +293,18 @@ class MainActivity : Activity() {
 
 WHAT IT DOES
 - Becomes the phone's Device Owner (set once from a computer with adb). After that Android itself stops you uninstalling it. The only way to uninstall is the 5-minute window described below.
-- Hides the Telegram and X apps (and Telegram clients) so they cannot open at all, and blocks their websites.
+- Hides the Telegram, X (Twitter), Reddit and Discord apps (and alternative clients) so they cannot open at all, and blocks the Telegram and X websites. Reddit and Discord in a browser are NOT blocked.
 - Blocks VPNs: VPN configuration is locked, every app that can create a VPN (and apps with vpn/proxy/tor/DNS-changer style names) is hidden, and a VPN connection triggers an alarm.
 - Locks Private DNS to CleanBrowsing's adult filter, so every app's internet lookups go through it. CleanBrowsing sees your DNS lookups, and its adult filter also applies SafeSearch to Google/Bing/YouTube at DNS level (change the DNS host in the app, with the unlock, if that causes wrong blocks).
 - Allows only Chrome and Brave. All other browsers are hidden. In Chrome/Brave: about 300 built-in adult domains are blocked, and incognito is off. SafeSearch is not forced and browsing history/cookies can still be cleared.
 - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 - Downloads a public adult-domain list from GitHub every week and checks pages against it.
-- Night curfew (default 23:00-06:00): all browsers plus Reddit, Instagram, Snapchat, TikTok and Discord are hidden.
+- Night curfew (default 23:00-06:00 UK time): the Instagram and TikTok apps are hidden. Browsers are not affected.
 - Every build installs as a SEPARATE app with its own package name and display name. It never updates an older copy and never updates itself. Only one app can be Device Owner, so to move to a newer build you must first release the old one (PIN, then the next-day unlock) or factory reset.
-- Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock). Installing from unknown sources stays allowed.
+- Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and takes the time from the internet (UK time) for the unlock window and curfew, so changing the phone's clock does nothing; if the UK time cannot be verified, everything stays locked. Installing from unknown sources stays allowed.
 
 WHAT IT MEANS FOR YOU
-- Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens at 14:00 the NEXT day and lasts only 5 minutes. Open the app during those 5 minutes to make changes. Adding protection is always instant.
+- Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens at 14:00 UK time the NEXT day and lasts only 5 minutes. Open the app during those 5 minutes to make changes. Adding protection is always instant.
 - That 5-minute window is also the ONLY way to uninstall Guardian: tap Release & uninstall inside it. If you miss it you must request again and wait another day.
 - Nothing can speed this up. If you forget the PIN, the only way out is a factory reset of the phone.
 - Work or school VPNs will stop working. Telegram and X apps stay hidden, even if you need them for something legitimate.
@@ -299,7 +312,7 @@ WHAT IT MEANS FOR YOU
 - Android Settings stays fully usable in this version. Strict mode (off by default) additionally blocks factory reset, USB debugging and force-stop.
 
 WHAT IT CANNOT STOP
-- A factory reset from recovery, flashing the phone, another phone or computer, changing the clock while the phone is off, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes).
+- A factory reset from recovery, flashing the phone, another phone or computer, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes).
 
 It collects nothing for any company and has no account. Its only network traffic is the weekly list download and DNS via CleanBrowsing.
 
