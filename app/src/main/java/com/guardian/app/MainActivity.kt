@@ -1,31 +1,37 @@
 package com.guardian.app
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
-import android.widget.Button
+import android.view.Gravity
+import android.view.View
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 
 class MainActivity : Activity() {
-    private lateinit var root: LinearLayout
-    private lateinit var status: TextView
+    private lateinit var heroTitle: TextView
+    private lateinit var heroSub: TextView
+    private lateinit var statusBox: LinearLayout
     private lateinit var gateText: TextView
     private lateinit var logText: TextView
     private lateinit var pinField: EditText
 
-    private lateinit var cbStrict: CheckBox
-    private lateinit var cbShield: CheckBox
-    private lateinit var cbCurfew: CheckBox
+    private lateinit var swStrict: Switch
+    private lateinit var swShield: Switch
+    private lateinit var swCurfew: Switch
     private lateinit var etCurfewStart: EditText
     private lateinit var etCurfewEnd: EditText
     private lateinit var etThreshold: EditText
@@ -38,107 +44,195 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (!Prefs.introDone(this)) { showIntro(); return }
-        buildMain()
+        window.statusBarColor = Ui.BG
+        window.navigationBarColor = Ui.BG
+        if (!Prefs.introDone(this)) showIntro() else buildMain()
     }
 
+    override fun onResume() { super.onResume(); if (::heroTitle.isInitialized) refresh() }
+
+    // ---------------------------------------------------------------- intro
     private fun showIntro() {
-        val pad = dp(18)
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(pad, pad, pad, pad) }
-        col.addView(TextView(this).apply { text = "Read this first"; textSize = 26f })
-        col.addView(TextView(this).apply { text = INTRO_TEXT; textSize = 15f; setPadding(0, dp(12), 0, dp(12)) })
-        col.addView(Button(this).apply {
-            text = "I understand, continue"
-            setOnClickListener { Prefs.setIntroDone(this@MainActivity); recreate() }
-        })
-        col.addView(Button(this).apply { text = "No thanks, close"; setOnClickListener { finish() } })
-        setContentView(ScrollView(this).apply { addView(col) })
+        val col = Ui.column(this).apply { setPadding(Ui.dp(this@MainActivity, 20), Ui.dp(this@MainActivity, 28), Ui.dp(this@MainActivity, 20), Ui.dp(this@MainActivity, 28)) }
+        col.addView(TextView(this).apply { text = "⚠"; textSize = 34f; setTextColor(Ui.WARN) })
+        col.addView(Ui.title(this, "Read this first", 30f))
+        col.addView(Ui.body(this, "This is exactly what you are signing up for.", true, 15f), Ui.lp(this, 4, 16))
+
+        for (block in INTRO_TEXT.split("\n\n")) {
+            val lines = block.lines()
+            val head = lines[0]
+            if (lines.size > 1 && head.all { it.isUpperCase() || it == ' ' }) {
+                col.addView(Ui.label(this, head), Ui.lp(this, 10))
+                val card = Ui.card(this)
+                lines.drop(1).forEachIndexed { i, l ->
+                    val row = Ui.body(this, "•  " + l.removePrefix("- "), false, 14f)
+                    card.addView(row, Ui.lp(this, if (i == 0) 0 else 10))
+                }
+                col.addView(card, Ui.lp(this, 4))
+            } else {
+                col.addView(Ui.body(this, block, false, 15f), Ui.lp(this, 8, 8))
+            }
+        }
+
+        val agree = CheckBox(this).apply { text = "I have read all of this and want these restrictions on this phone"; setTextColor(Ui.TEXT); textSize = 14f }
+        val go = Ui.button(this, "Continue") { Prefs.setIntroDone(this); recreate() }
+        go.isEnabled = false; go.alpha = 0.4f
+        agree.setOnCheckedChangeListener { _, on -> go.isEnabled = on; go.alpha = if (on) 1f else 0.4f }
+        col.addView(agree, Ui.lp(this, 18, 8))
+        col.addView(go, Ui.lp(this, 4))
+        col.addView(Ui.button(this, "No thanks, close", Ui.Kind.SECONDARY) { finish() }, Ui.lp(this, 10))
+        setContentView(ScrollView(this).apply { setBackgroundColor(Ui.BG); addView(col) })
     }
 
+    // ---------------------------------------------------------------- main
     private fun buildMain() {
-        val pad = dp(16)
-        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(pad, pad, pad, pad) }
-        setContentView(ScrollView(this).apply { addView(root) })
+        val pad = Ui.dp(this, 16)
+        val root = Ui.column(this).apply { setPadding(pad, Ui.dp(this@MainActivity, 24), pad, Ui.dp(this@MainActivity, 32)) }
+        setContentView(ScrollView(this).apply { setBackgroundColor(Ui.BG); addView(root) })
 
-        head("Guardian")
-        button("What this app does (read again)") {
-            androidx_free_dialog()
-        }
-        status = text(""); root.addView(status)
-        button("Apply protections now") { Enforcer.applyAsync(this, "manual"); toast("Applying..."); status.postDelayed({ refresh() }, 1500) }
-        button("Open accessibility settings") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        // hero
+        root.addView(TextView(this).apply { text = getString(R.string.app_name); textSize = 14f; setTextColor(Ui.ACCENT); letterSpacing = 0.12f; typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) })
+        heroTitle = Ui.title(this, "", 30f)
+        heroSub = Ui.body(this, "")
+        root.addView(heroTitle, Ui.lp(this, 4))
+        root.addView(heroSub, Ui.lp(this, 4, 14))
 
-        head("Setup (one time, from a computer)")
-        text("1. Remove every Google/other account from the phone (Settings > Accounts), you can add them back afterwards.\n" +
-            "2. Enable USB debugging, connect, then run:").also { root.addView(it) }
-        text(setupCmds).apply { setTextIsSelectable(true); typeface = android.graphics.Typeface.MONOSPACE; root.addView(this) }
-        button("Copy commands") {
-            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("cmds", setupCmds))
-            toast("Copied")
-        }
+        val status = Ui.card(this)
+        statusBox = Ui.column(this)
+        status.addView(statusBox)
+        status.addView(Ui.button(this, "Apply protections now") {
+            Enforcer.applyAsync(this, "manual"); toast("Applying…"); status.postDelayed({ refresh() }, 1500)
+        }, Ui.lp(this, 10))
+        status.addView(Ui.button(this, "Open accessibility settings", Ui.Kind.SECONDARY) {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }, Ui.lp(this, 8))
+        root.addView(status, Ui.lp(this, 0, 12))
 
-        head("PIN and unlock (anti-bypass)")
-        gateText = text(""); root.addView(gateText)
-        pinField = EditText(this).apply { hint = "PIN"; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD }
-        root.addView(pinField)
-        button("Set / change PIN") { toast(Gate.setPin(this, pinField.text.toString())); refresh() }
-        button("Request unlock (opens 11:00 tomorrow for 2 hours)") { toast(Gate.requestUnlock(this, pinField.text.toString())); refresh() }
-        button("Lock again now") { Gate.lock(this); refresh() }
+        // unlock
+        val unlock = Ui.card(this)
+        unlock.addView(Ui.title(this, "PIN and unlock"))
+        gateText = Ui.body(this, "")
+        unlock.addView(gateText, Ui.lp(this, 6, 10))
+        pinField = Ui.input(this, "PIN (4+ digits)", "", InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD)
+        unlock.addView(pinField)
+        unlock.addView(Ui.button(this, "Set PIN") { toast(Gate.setPin(this, pinField.text.toString())); refresh() }, Ui.lp(this, 10))
+        unlock.addView(Ui.button(this, "Request unlock (opens 14:00 tomorrow, 5 min)", Ui.Kind.SECONDARY) {
+            toast(Gate.requestUnlock(this, pinField.text.toString())); refresh()
+        }, Ui.lp(this, 8))
+        unlock.addView(Ui.button(this, "Lock again now", Ui.Kind.SECONDARY) { Gate.lock(this); refresh() }, Ui.lp(this, 8))
+        root.addView(unlock, Ui.lp(this, 0, 12))
 
-        head("Settings")
-        cbStrict = check("Strict mode: block factory reset, USB debugging, force-stop/clear data of apps", Prefs.strict(this))
-        cbShield = check("Self-shield: kick out of Settings pages that show Guardian", Prefs.shield(this))
-        cbCurfew = check("Night curfew: hide all browsers + curfew apps", Prefs.curfewOn(this))
-        etCurfewStart = num("Curfew start hour (0-23)", Prefs.curfewStart(this))
-        etCurfewEnd = num("Curfew end hour (0-23)", Prefs.curfewEnd(this))
-        etThreshold = num("Keyword threshold (3 = one strong word or three mild)", Prefs.threshold(this))
-        etDns = field("Private DNS host (family filter)", Prefs.dnsHost(this))
-        etRemote = EditText(this).apply {
-            setText(Prefs.remoteUrlsRaw(this@MainActivity)); minLines = 2; gravity = android.view.Gravity.TOP
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-        }
-        root.addView(text("Online blocklist URLs (https, hosts or plain format, one per line; refreshed weekly)")); root.addView(etRemote)
-        button("Update online blocklist now") {
+        // settings
+        val set = Ui.column(this)
+        swStrict = Ui.toggle(this, "Strict mode: block factory reset, USB debugging and force-stop", Prefs.strict(this))
+        swShield = Ui.toggle(this, "Self-shield: kick out of Settings pages showing this app", Prefs.shield(this))
+        swCurfew = Ui.toggle(this, "Night curfew: hide all browsers + curfew apps", Prefs.curfewOn(this))
+        set.addView(swStrict); set.addView(swShield); set.addView(swCurfew)
+        set.addView(Ui.label(this, "Curfew hours (0-23)"))
+        val hours = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        etCurfewStart = Ui.input(this, "from", Prefs.curfewStart(this).toString(), InputType.TYPE_CLASS_NUMBER)
+        etCurfewEnd = Ui.input(this, "to", Prefs.curfewEnd(this).toString(), InputType.TYPE_CLASS_NUMBER)
+        hours.addView(etCurfewStart, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = Ui.dp(this@MainActivity, 8) })
+        hours.addView(etCurfewEnd, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        set.addView(hours)
+        set.addView(Ui.label(this, "Keyword threshold (3 = one strong word or three mild)"))
+        etThreshold = Ui.input(this, "3", Prefs.threshold(this).toString(), InputType.TYPE_CLASS_NUMBER)
+        set.addView(etThreshold)
+        set.addView(Ui.label(this, "Private DNS host"))
+        etDns = Ui.input(this, "DNS host", Prefs.dnsHost(this))
+        set.addView(etDns)
+        set.addView(Ui.label(this, "Online blocklist URLs (https, one per line, refreshed weekly)"))
+        etRemote = Ui.input(this, "https://…", Prefs.remoteUrlsRaw(this), InputType.TYPE_CLASS_TEXT, 2)
+        set.addView(etRemote)
+        set.addView(Ui.button(this, "Update online blocklist now", Ui.Kind.SECONDARY) {
             Thread { val m = RemoteList.refresh(this, true); runOnUiThread { toast(m); refresh() } }.start()
-        }
-        button("Save settings") { saveSettings() }
+        }, Ui.lp(this, 10))
+        set.addView(Ui.button(this, "Save settings") { saveSettings() }, Ui.lp(this, 8))
+        root.addView(Ui.collapsible(this, "Settings", set, false), Ui.lp(this, 0, 12))
 
-        head("Your additions (built-in lists can't be edited)")
-        listEditor("Extra blocked domains", Prefs.K_DOMAINS, weakenOnAdd = false)
-        listEditor("Extra strong keywords (1 hit blocks)", Prefs.K_STRONG, false)
-        listEditor("Extra mild keywords (3 hits block)", Prefs.K_MILD, false)
-        listEditor("Extra packages to hide", Prefs.K_HIDE, false)
-        listEditor("Extra curfew-only apps (package names)", Prefs.K_CURFEW_APPS, false)
-        listEditor("Extra ALLOWED browsers (weakens: needs unlock)", Prefs.K_BROWSER, true)
+        // lists
+        val lists = Ui.column(this)
+        lists.addView(Ui.body(this, "Your additions to the built-in lists. Built-ins can't be removed. Removing your own entries needs an unlock."))
+        listEditor(lists, "Extra blocked domains", Prefs.K_DOMAINS, false)
+        listEditor(lists, "Extra strong keywords (1 hit blocks)", Prefs.K_STRONG, false)
+        listEditor(lists, "Extra mild keywords (3 hits block)", Prefs.K_MILD, false)
+        listEditor(lists, "Extra packages to hide", Prefs.K_HIDE, false)
+        listEditor(lists, "Extra curfew-only apps", Prefs.K_CURFEW_APPS, false)
+        listEditor(lists, "Extra ALLOWED browsers (weakens: needs unlock)", Prefs.K_BROWSER, true)
+        root.addView(Ui.collapsible(this, "Block lists", lists, false), Ui.lp(this, 0, 12))
 
-        head("Release")
-        text("Removes device-owner protection so Guardian can be uninstalled. Requires an open unlock window.").also { root.addView(it) }
-        button("Release device owner") {
-            if (!Gate.isUnlocked(this)) toast("Locked. Unlock first.") else toast(Enforcer.releaseAll(this))
-            refresh()
-        }
+        // setup
+        val setup = Ui.column(this)
+        setup.addView(Ui.body(this, "1. Remove every account from the phone (Settings > Accounts); re-add them afterwards.\n2. Enable USB debugging, connect to a computer and run:"))
+        setup.addView(TextView(this).apply {
+            text = setupCmds; textSize = 12f; setTextColor(Ui.ACCENT); typeface = Typeface.MONOSPACE; setTextIsSelectable(true)
+            background = Ui.rounded(this@MainActivity, Ui.FIELD, 12)
+            setPadding(Ui.dp(this@MainActivity, 12), Ui.dp(this@MainActivity, 12), Ui.dp(this@MainActivity, 12), Ui.dp(this@MainActivity, 12))
+        }, Ui.lp(this, 8))
+        setup.addView(Ui.button(this, "Copy commands", Ui.Kind.SECONDARY) {
+            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("cmds", setupCmds)); toast("Copied")
+        }, Ui.lp(this, 8))
+        root.addView(Ui.collapsible(this, "Setup commands", setup, !Enforcer.isOwner(this)), Ui.lp(this, 0, 12))
 
-        head("Recent events")
-        logText = text(""); root.addView(logText)
+        // log
+        val log = Ui.column(this)
+        logText = Ui.body(this, "", true, 12f)
+        log.addView(logText)
+        root.addView(Ui.collapsible(this, "Recent events", log, false), Ui.lp(this, 0, 12))
+
+        // release / uninstall
+        val danger = Ui.card(this).apply { background = Ui.rounded(this@MainActivity, Ui.CARD, 18, Ui.BAD) }
+        danger.addView(Ui.title(this, "Release & uninstall"))
+        danger.addView(Ui.body(this, "The only way to uninstall. It works only inside the 5-minute window at 14:00, after you requested an unlock with your PIN the day before."), Ui.lp(this, 6, 10))
+        danger.addView(Ui.button(this, "Release & uninstall", Ui.Kind.DANGER) { releaseAndUninstall() })
+        root.addView(danger, Ui.lp(this, 0, 12))
+
+        root.addView(Ui.button(this, "What this app does", Ui.Kind.SECONDARY) {
+            AlertDialog.Builder(this).setTitle("What this app does").setMessage(INTRO_TEXT).setPositiveButton("OK", null).show()
+        })
         refresh()
     }
 
-    private fun androidx_free_dialog() {
-        android.app.AlertDialog.Builder(this).setTitle("What this app does").setMessage(INTRO_TEXT).setPositiveButton("OK", null).show()
-    }
-
-    override fun onResume() { super.onResume(); if (::status.isInitialized) refresh() }
-
     private fun refresh() {
-        status.text = Enforcer.status(this) + "\n" + RemoteList.status(this)
+        val owner = Enforcer.isOwner(this)
+        val a11y = Enforcer.a11yOk(this)
+        val dnsMode = Settings.Global.getString(contentResolver, "private_dns_mode")
+        val dnsOk = dnsMode == "hostname" && Settings.Global.getString(contentResolver, "private_dns_specifier") == Prefs.dnsHost(this)
+        val full = owner && a11y && dnsOk
+        heroTitle.text = if (full) "Protection active" else "Setup needed"
+        heroTitle.setTextColor(if (full) Ui.OK else Ui.WARN)
+        heroSub.text = "${Prefs.hits(this)} blocks so far" + if (Curfew.active(this)) "  ·  night curfew is ON" else ""
+
+        statusBox.removeAllViews()
+        statusBox.addView(Ui.dotRow(this, owner, "Device owner", if (owner) "Uninstall blocked, VPN and DNS locked" else "Run the setup commands below"))
+        statusBox.addView(Ui.dotRow(this, a11y, "Screen scanner", if (a11y) "Accessibility service running" else "Tap Apply, or enable it in accessibility settings"))
+        statusBox.addView(Ui.dotRow(this, dnsOk, "Private DNS", if (dnsOk) Prefs.dnsHost(this) else "Not locked yet"))
+        statusBox.addView(Ui.dotRow(this, null, RemoteList.status(this).removePrefix("Remote list: ").replaceFirstChar { it.uppercase() }, "Online blocklist"))
+        val report = Prefs.lastReport(this).lines().filter { it.isNotBlank() }
+        if (report.isNotEmpty()) statusBox.addView(Ui.body(this, report.joinToString("\n"), true, 12f), Ui.lp(this, 8))
+
         gateText.text = Gate.describe(this)
-        logText.text = Prefs.log(this).takeLast(25).reversed().joinToString("\n").ifEmpty { "(none)" }
+        logText.text = Prefs.log(this).takeLast(25).reversed().joinToString("\n").ifEmpty { "(none yet)" }
     }
 
-    // ---- guarded saving ----
+    // ---------------------------------------------------------------- actions
+    private fun releaseAndUninstall() {
+        if (!Gate.isUnlocked(this)) { toast("Locked. Request an unlock with your PIN; the window opens at 14:00 the next day for 5 minutes."); return }
+        AlertDialog.Builder(this)
+            .setTitle("Release and uninstall?")
+            .setMessage("This removes all protection and opens the uninstall prompt.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Release") { _, _ ->
+                val msg = Enforcer.releaseAll(this)
+                toast(msg)
+                if (msg.startsWith("Released")) startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")))
+                refresh()
+            }.show()
+    }
+
     private fun saveSettings() {
-        val newStrict = cbStrict.isChecked
-        val newShield = cbShield.isChecked; val newCurfew = cbCurfew.isChecked
+        val newStrict = swStrict.isChecked
+        val newShield = swShield.isChecked; val newCurfew = swCurfew.isChecked
         val cs = etCurfewStart.text.toString().toIntOrNull() ?: Prefs.curfewStart(this)
         val ce = etCurfewEnd.text.toString().toIntOrNull() ?: Prefs.curfewEnd(this)
         val th = etThreshold.text.toString().toIntOrNull() ?: Prefs.threshold(this)
@@ -161,46 +255,31 @@ class MainActivity : Activity() {
         toast("Saved"); refresh()
     }
 
-    private fun listEditor(label: String, key: String, weakenOnAdd: Boolean) {
-        text(label).also { root.addView(it) }
-        val et = EditText(this).apply {
-            setText(Prefs.list(this@MainActivity, key).joinToString("\n"))
-            minLines = 2; gravity = android.view.Gravity.TOP
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            hint = "one per line"
-        }
-        root.addView(et)
-        button("Save: $label") {
+    private fun listEditor(parent: LinearLayout, label: String, key: String, weakenOnAdd: Boolean) {
+        parent.addView(Ui.label(this, label))
+        val et = Ui.input(this, "one per line", Prefs.list(this, key).joinToString("\n"), InputType.TYPE_CLASS_TEXT, 2)
+        parent.addView(et)
+        parent.addView(Ui.button(this, "Save", Ui.Kind.SECONDARY) {
             val old = Prefs.list(this, key).toSet()
             val new = et.text.toString().split('\n').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
             val weakens = if (weakenOnAdd) (new - old).isNotEmpty() else (old - new).isNotEmpty()
             if (weakens && !Gate.isUnlocked(this)) {
-                toast(if (weakenOnAdd) "Locked: adding allowed browsers needs unlock." else "Locked: removing entries needs unlock.")
+                toast(if (weakenOnAdd) "Locked: adding allowed browsers needs an unlock." else "Locked: removing entries needs an unlock.")
             } else {
                 Prefs.setList(this, key, new)
                 if (weakens) Alerts.event(this, "LIST_WEAKENED", "$key edited during unlock window")
                 Enforcer.applyAsync(this, "list saved"); toast("Saved")
             }
-        }
+        }, Ui.lp(this, 6))
     }
 
-    // ---- tiny view helpers ----
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-    private fun text(s: String) = TextView(this).apply { text = s; setPadding(0, dp(4), 0, dp(4)) }
-    private fun head(s: String) { root.addView(TextView(this).apply { text = s; textSize = 20f; setPadding(0, dp(20), 0, dp(6)) }) }
-    private fun button(label: String, onClick: () -> Unit) { root.addView(Button(this).apply { text = label; setOnClickListener { onClick() } }) }
-    private fun check(label: String, on: Boolean) = CheckBox(this).apply { text = label; isChecked = on }.also { root.addView(it) }
-    private fun field(label: String, value: String) = EditText(this).apply { hint = label; setText(value) }.also {
-        root.addView(text(label)); root.addView(it)
-    }
-    private fun num(label: String, value: Int) = field(label, value.toString()).apply { inputType = InputType.TYPE_CLASS_NUMBER }
 
     companion object {
         const val INTRO_TEXT = """Guardian is a self-control app. You install it to stop YOURSELF reaching porn, nude-leak sites, Telegram, X (Twitter) and VPNs, and it is built so that you cannot easily turn it off.
 
 WHAT IT DOES
-- Becomes the phone's Device Owner (set once from a computer with adb). After that Android itself stops you uninstalling it.
+- Becomes the phone's Device Owner (set once from a computer with adb). After that Android itself stops you uninstalling it. The only way to uninstall is the 5-minute window described below.
 - Hides the Telegram and X apps (and Telegram clients) so they cannot open at all, and blocks their websites.
 - Blocks VPNs: VPN configuration is locked, every app that can create a VPN (and apps with vpn/proxy/tor/DNS-changer style names) is hidden, and a VPN connection triggers an alarm.
 - Locks Private DNS to CleanBrowsing's adult filter, so every app's internet lookups go through it. CleanBrowsing sees your DNS lookups, and its adult filter also applies SafeSearch to Google/Bing/YouTube at DNS level (change the DNS host in the app, with the unlock, if that causes wrong blocks).
@@ -212,13 +291,15 @@ WHAT IT DOES
 - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock). Installing from unknown sources stays allowed.
 
 WHAT IT MEANS FOR YOU
-- Any change that weakens protection (removing a block, turning a protection off, releasing the app) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules an edit window that opens at 11:00 the NEXT day and lasts 2 hours, then locks again. Nothing can speed this up. Adding protection is always instant. If you forget the PIN, the only way out is a factory reset of the phone.
+- Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens at 14:00 the NEXT day and lasts only 5 minutes. Open the app during those 5 minutes to make changes. Adding protection is always instant.
+- That 5-minute window is also the ONLY way to uninstall Guardian: tap Release & uninstall inside it. If you miss it you must request again and wait another day.
+- Nothing can speed this up. If you forget the PIN, the only way out is a factory reset of the phone.
 - Work or school VPNs will stop working. Telegram and X apps stay hidden, even if you need them for something legitimate.
 - It may block harmless pages that contain several adult keywords, or domains on the downloaded list that are wrong.
 - Android Settings stays fully usable in this version. Strict mode (off by default) additionally blocks factory reset, USB debugging and force-stop.
 
 WHAT IT CANNOT STOP
-- A factory reset from recovery, flashing the phone, another phone or computer, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes).
+- A factory reset from recovery, flashing the phone, another phone or computer, changing the clock while the phone is off, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes).
 
 It collects nothing for any company and has no account. Its only network traffic is the weekly list download and DNS via CleanBrowsing.
 

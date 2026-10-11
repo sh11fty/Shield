@@ -7,14 +7,16 @@ import java.util.Date
 
 /**
  * Anything that WEAKENS protection (removing a block, turning a toggle off, releasing device-owner) needs the PIN.
- * Typing the PIN does not unlock anything yet: it schedules an edit window that opens at 11:00 the NEXT day
- * and lasts 2 hours. Nothing speeds this up. Strengthening is always free. With no PIN set everything is open.
+ * Typing the PIN does not unlock anything yet: it schedules a window that opens at 14:00 the NEXT day and lasts
+ * only 5 minutes. During it you can change settings and use "Release & uninstall", which is the ONLY way to
+ * uninstall. Nothing speeds this up. Strengthening is always free. With no PIN set everything is open.
  */
 object Gate {
-    private const val WINDOW_MS = 2 * 3_600_000L
+    private const val WINDOW_MS = 5 * 60_000L
 
     fun isUnlocked(c: Context): Boolean {
         if (!Prefs.hasPin(c)) return true
+        Enforcer.clockWatch(c)
         val now = System.currentTimeMillis()
         val r = Prefs.readyAt(c)
         return r != 0L && now >= r && now < Prefs.unlockedUntil(c)
@@ -28,15 +30,15 @@ object Gate {
         val u = Prefs.unlockedUntil(c)
         return when {
             r != 0L && now >= r && now < u -> "UNLOCKED until ${df.format(Date(u))}. Changes allowed now."
-            r > now -> "Unlock requested. Changes open at ${df.format(Date(r))} for 2 hours."
-            else -> "LOCKED. Enter the PIN to request an unlock; it opens at 11:00 tomorrow."
+            r > now -> "Unlock requested. Changes open at ${df.format(Date(r))} for 5 minutes."
+            else -> "LOCKED. Enter the PIN to request an unlock; it opens at 14:00 tomorrow for 5 minutes."
         }
     }
 
     private fun nextDayEleven(): Long {
         val cal = Calendar.getInstance()
         cal.add(Calendar.DAY_OF_YEAR, 1)
-        cal.set(Calendar.HOUR_OF_DAY, 11)
+        cal.set(Calendar.HOUR_OF_DAY, 14)
         cal.set(Calendar.MINUTE, 0)
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
@@ -50,7 +52,7 @@ object Gate {
         if (Prefs.readyAt(c) != 0L && now < Prefs.unlockedUntil(c)) return describe(c)
         val ready = nextDayEleven()
         Prefs.setUnlock(c, ready, ready + WINDOW_MS)
-        Alerts.event(c, "UNLOCK_REQUESTED", "window opens at 11:00 tomorrow")
+        Alerts.event(c, "UNLOCK_REQUESTED", "window opens at 14:00 tomorrow (5 min)")
         return describe(c)
     }
 

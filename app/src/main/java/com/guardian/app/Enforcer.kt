@@ -65,7 +65,7 @@ object Enforcer {
     }
 
     // ---------- clock tamper detection (the clock itself is NOT locked) ----------
-    private fun clockWatch(ctx: Context) {
+    fun clockWatch(ctx: Context) {
         val sp = ctx.getSharedPreferences("guardian_clock", Context.MODE_PRIVATE)
         val wall = System.currentTimeMillis()
         val el = SystemClock.elapsedRealtime()

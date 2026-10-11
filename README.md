@@ -4,7 +4,7 @@
 > Guardian is a self-control app. You install it to stop YOURSELF reaching porn, nude-leak sites, Telegram, X (Twitter) and VPNs, and it is built so that you cannot easily turn it off.
 >
 > WHAT IT DOES
-> - Becomes the phone's Device Owner (set once from a computer with adb). After that Android itself stops you uninstalling it.
+> - Becomes the phone's Device Owner (set once from a computer with adb). After that Android itself stops you uninstalling it. The only way to uninstall is the 5-minute window described below.
 > - Hides the Telegram and X apps (and Telegram clients) so they cannot open at all, and blocks their websites.
 > - Blocks VPNs: VPN configuration is locked, every app that can create a VPN (and apps with vpn/proxy/tor/DNS-changer style names) is hidden, and a VPN connection triggers an alarm.
 > - Locks Private DNS to CleanBrowsing's adult filter, so every app's internet lookups go through it. CleanBrowsing sees your DNS lookups, and its adult filter also applies SafeSearch to Google/Bing/YouTube at DNS level (change the DNS host in the app, with the unlock, if that causes wrong blocks).
@@ -16,13 +16,15 @@
 > - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock). Installing from unknown sources stays allowed.
 >
 > WHAT IT MEANS FOR YOU
-> - Any change that weakens protection (removing a block, turning a protection off, releasing the app) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules an edit window that opens at 11:00 the NEXT day and lasts 2 hours, then locks again. Nothing can speed this up. Adding protection is always instant. If you forget the PIN, the only way out is a factory reset of the phone.
+> - Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens at 14:00 the NEXT day and lasts only 5 minutes. Open the app during those 5 minutes to make changes. Adding protection is always instant.
+> - That 5-minute window is also the ONLY way to uninstall Guardian: tap Release & uninstall inside it. If you miss it you must request again and wait another day.
+> - Nothing can speed this up. If you forget the PIN, the only way out is a factory reset of the phone.
 > - Work or school VPNs will stop working. Telegram and X apps stay hidden, even if you need them for something legitimate.
 > - It may block harmless pages that contain several adult keywords, or domains on the downloaded list that are wrong.
 > - Android Settings stays fully usable in this version. Strict mode (off by default) additionally blocks factory reset, USB debugging and force-stop.
 >
 > WHAT IT CANNOT STOP
-> - A factory reset from recovery, flashing the phone, another phone or computer, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes).
+> - A factory reset from recovery, flashing the phone, another phone or computer, changing the clock while the phone is off, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes).
 >
 > It collects nothing for any company and has no account. Its only network traffic is the weekly list download and DNS via CleanBrowsing.
 >
@@ -46,7 +48,7 @@ route, while leaving Android Settings usable (per your request; see "Strict mode
    adb shell pm grant <package> android.permission.WRITE_SECURE_SETTINGS
    ```
 3. Open Guardian, tap **Apply protections now** (it enables its own accessibility service).
-4. Set a **PIN**. Typing it only schedules an unlock for 11:00 the next day, so pick one you cannot talk yourself into using on impulse.
+4. Set a **PIN**. Typing it only schedules a 5-minute window at 14:00 the next day (also the only way to uninstall), so pick one you cannot talk yourself into using on impulse.
 
 ## What it does
 | Layer | How |
@@ -60,7 +62,7 @@ route, while leaving Android Settings usable (per your request; see "Strict mode
 | Everything else | Accessibility service scans on-screen text + URLs in **all** apps: blocked domain = instant block, strong keyword = block, 3 mild words = block |
 
 ## The 10 extra protections beyond the brief
-1. **Next-day PIN unlock**: any change that weakens protection needs the PIN, and typing it only opens an edit window at 11:00 the next day (2 hours). Strengthening is always free.
+1. **Next-day PIN unlock**: any change that weakens protection needs the PIN, and typing it only opens a window at 14:00 the next day for 5 minutes, which is also the only way to uninstall. Strengthening is always free.
 2. **Clock watch**: the date/time is not locked, but if the clock jumps relative to the phone's uptime, a pending unlock is cancelled.
 3. **Self-healing**: 5 min alarm chain + 15 min persisted job + boot receiver re-apply everything; accessibility is re-enabled via `WRITE_SECURE_SETTINGS` if switched off; DNS restored if changed.
 4. **Browser lockdown**: incognito off, DoH off, dev tools off (Chrome / Brave managed config).
