@@ -12,7 +12,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 
-/** Two independent heartbeats so a killed process is revived: a 15 min persisted job and a 5 min alarm chain. */
+/** Two independent heartbeats so a killed process is revived: a 15 min persisted job and a 1 min alarm chain. */
 object Scheduler {
     private const val JOB_ID = 4711
 
@@ -40,7 +40,7 @@ object Scheduler {
                 ctx, 2, Intent(ctx, AlarmReceiver::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 5 * 60 * 1000L, pi)
+            am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 60 * 1000L, pi)
         }
     }
 }

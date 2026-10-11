@@ -102,15 +102,22 @@ object Blocklists {
     val HIDE_PACKAGE_PREFIXES: List<String> = listOf(
         "org.telegram.", "org.thunderdog.challegram", "nekox.", "tw.nekomimi.", "xyz.nextalone.", "com.exteragram.",
         "org.telegram.plus", "it.owlgram.", "ir.ilmili.", "com.twitter.", "com.x.android", "tv.periscope.",
-        "app.nicegram", "org.forkgram", "com.nekogram", "com.reddit.", "com.discord"
+        "app.nicegram", "org.forkgram", "com.nekogram", "com.reddit.", "com.discord",
+        "org.telegram", "org.thunderdog", "uz.unnarsx", "com.radolyn", "ellipi.messenger", "org.ushastoe",
+        "com.cool2645.nekolite", "org.aka.messenger", "com.gram", "ir.hotgram", "com.telegraph",
+        "com.twitter", "com.twidere", "org.mariotaku", "com.tweetcaster", "com.handmark.tweetcaster",
+        "com.levelup.touiteur", "com.klinker.android.twitter", "com.sw.twitter", "com.yinzcam.twitter",
+        "ru.zdevs", "com.laurencedawson.reddit_sync", "free.reddit.news", "reddit.news", "com.andrewshu.android.reddit",
+        "ml.docilealligator.infinityforreddit", "com.onelouder.baconreader", "com.rubenmayayo.reddit",
+        "me.ccrama.redditslide", "com.ccrama.redditslide", "com.reddit.frontpage", "io.syncapps.lemmy_sync"
     )
 
     /** Reddit and Discord apps/clients (Reddit in a browser is allowed). */
-    val HIDE_PACKAGE_REGEX = Regex("reddit|discord", RegexOption.IGNORE_CASE)
+    val HIDE_PACKAGE_REGEX = Regex("reddit|discord|telegram|nekogram|nekox|plusmessenger|twitter|tweet|redditslide|infinityforreddit|baconreader", RegexOption.IGNORE_CASE)
 
     /** Apps hidden when their label matches. Case-insensitive. */
     val HIDE_LABEL_REGEX = Regex(
-        "^x$|^x lite$|\\btwitter\\b|\\btelegram\\b|nekogram|challegram|exteragram|nagram|nicegram|\\bowlgram\\b|\\bunigram\\b|\\bplus messenger\\b|reddit|discord",
+        "^x$|^x lite$|\\btwitter\\b|\\btelegram\\b|nekogram|challegram|exteragram|nagram|nicegram|\\bowlgram\\b|\\bunigram\\b|\\bplus messenger\\b|reddit|discord|tele ?gram|\\bgram\\b|messenger plus|\\bturrit\\b|\\btweet|\\btalon\\b|\\bfenix\\b|\\bsync for reddit|\\bboost for reddit|\\bslide for reddit|\\binfinity for reddit|\\bbacon reader|\\brelay for reddit|\\bjoey\\b|\\bnarwhal\\b|\\bx beta\\b|\\bgraph messenger|\\bkutegram|\\bmandrill|\\bsignal ?gram",
         RegexOption.IGNORE_CASE
     )
 
