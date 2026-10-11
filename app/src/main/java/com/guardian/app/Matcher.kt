@@ -49,7 +49,7 @@ object Matcher {
     ): Hit? {
         if (raw.length < 3) return null
         val c = compile(domains, strong, mild)
-        val text = normalize(raw.take(30000))
+        val text = normalize(raw.take(12000))
 
         for (m in HOST.findAll(text)) {
             val labels = m.value.removePrefix("www.").split('.')
