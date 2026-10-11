@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
 import java.util.concurrent.Executors
 
@@ -43,6 +44,7 @@ object Enforcer {
     fun apply(c: Context, why: String = ""): String = synchronized(lock) {
         val ctx = c.applicationContext
         val out = StringBuilder()
+        clockWatch(ctx)
         out.append(ensureAccessibility(ctx)).append('\n')
         if (!isOwner(ctx)) {
             out.append("NOT device owner: hiding apps, VPN/DNS locks and browser policies are inactive.")
@@ -60,6 +62,27 @@ object Enforcer {
         Prefs.setLastReport(ctx, out.toString())
         RemoteList.refresh(ctx)
         out.toString()
+    }
+
+    // ---------- clock tamper detection (the clock itself is NOT locked) ----------
+    private fun clockWatch(ctx: Context) {
+        val sp = ctx.getSharedPreferences("guardian_clock", Context.MODE_PRIVATE)
+        val wall = System.currentTimeMillis()
+        val el = SystemClock.elapsedRealtime()
+        val boot = Settings.Global.getInt(ctx.contentResolver, Settings.Global.BOOT_COUNT, -1)
+        val lw = sp.getLong("w", 0L)
+        val le = sp.getLong("e", 0L)
+        if (sp.getInt("b", -2) == boot && lw != 0L) {
+            val drift = (wall - lw) - (el - le)
+            if (kotlin.math.abs(drift) > 120_000L) {
+                Alerts.event(ctx, "CLOCK_CHANGED", "system clock moved by ${drift / 60000} min")
+                if (Prefs.readyAt(ctx) != 0L || Prefs.unlockedUntil(ctx) != 0L) {
+                    Prefs.setUnlock(ctx, 0L, 0L)
+                    Alerts.event(ctx, "UNLOCK_CANCELLED", "pending unlock cancelled because the clock was changed")
+                }
+            }
+        }
+        sp.edit().putLong("w", wall).putLong("e", el).putInt("b", boot).apply()
     }
 
     // ---------- accessibility self-heal ----------
@@ -98,21 +121,10 @@ object Enforcer {
 
     // ---------- user restrictions ----------
     private fun restrictions(ctx: Context, d: DevicePolicyManager, a: ComponentName): String {
-        val want = mutableSetOf(R_VPN, R_DNS, R_UNKNOWN, R_UNKNOWN_G, R_SAFE, R_USER, R_PROFILE)
-        if (Prefs.lockTime(ctx)) {
-            want += R_TIME
-            runCatching {
-                if (Build.VERSION.SDK_INT >= 30) {
-                    d.setAutoTimeEnabled(a, true)
-                } else {
-                    @Suppress("DEPRECATION")
-                    d.setAutoTimeRequired(a, true)
-                }
-            }
-        }
+        val want = mutableSetOf(R_VPN, R_DNS, R_SAFE, R_USER, R_PROFILE)
         if (Prefs.strict(ctx)) want += listOf(R_RESET, R_ADB, R_CTRL)
         for (r in MANAGED_RESTRICTIONS) runCatching { if (r in want) d.addUserRestriction(a, r) else d.clearUserRestriction(a, r) }
-        return "Restrictions: ${want.size} active (VPN config, DNS config, sideloading, safe mode, extra users${if (Prefs.lockTime(ctx)) ", date/time" else ""})"
+        return "Restrictions: ${want.size} active (VPN config, DNS config, safe mode, extra users/profiles; sideloading and date/time are NOT restricted)"
     }
 
     // ---------- private DNS ----------
@@ -224,16 +236,12 @@ object Enforcer {
             val b = Bundle().apply {
                 putStringArray("URLBlocklist", urls)
                 putInt("IncognitoModeAvailability", 1)
-                putBoolean("ForceGoogleSafeSearch", true)
-                putInt("ForceYouTubeRestrict", 2)
-                putInt("SafeSitesFilterBehavior", 1)
                 putString("DnsOverHttpsMode", "off")
-                putBoolean("AllowDeletingBrowserHistory", false)
                 putInt("DeveloperToolsAvailability", 2)
             }
             runCatching { d.setApplicationRestrictions(a, p, b) }
         }
-        return "Browser policy: ${urls.size} blocked domains, incognito off, SafeSearch+SafeSites on, DoH off, history delete off"
+        return "Browser policy: ${urls.size} blocked domains, incognito off, DoH off, dev tools off (no forced SafeSearch, history can be cleared)"
     }
 
     // ---------- status ----------

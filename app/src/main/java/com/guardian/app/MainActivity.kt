@@ -23,7 +23,6 @@ class MainActivity : Activity() {
     private lateinit var logText: TextView
     private lateinit var pinField: EditText
 
-    private lateinit var cbLockTime: CheckBox
     private lateinit var cbStrict: CheckBox
     private lateinit var cbShield: CheckBox
     private lateinit var cbCurfew: CheckBox
@@ -90,7 +89,6 @@ class MainActivity : Activity() {
         button("Lock again now") { Gate.lock(this); refresh() }
 
         head("Settings")
-        cbLockTime = check("Lock date/time (stops time-travel past the cooling-off)", Prefs.lockTime(this))
         cbStrict = check("Strict mode: block factory reset, USB debugging, force-stop/clear data of apps", Prefs.strict(this))
         cbShield = check("Self-shield: kick out of Settings pages that show Guardian", Prefs.shield(this))
         cbCurfew = check("Night curfew: hide all browsers + curfew apps", Prefs.curfewOn(this))
@@ -144,7 +142,7 @@ class MainActivity : Activity() {
 
     // ---- guarded saving ----
     private fun saveSettings() {
-        val newLock = cbLockTime.isChecked; val newStrict = cbStrict.isChecked
+        val newStrict = cbStrict.isChecked
         val newShield = cbShield.isChecked; val newCurfew = cbCurfew.isChecked
         val cs = etCurfewStart.text.toString().toIntOrNull() ?: Prefs.curfewStart(this)
         val ce = etCurfewEnd.text.toString().toIntOrNull() ?: Prefs.curfewEnd(this)
@@ -154,8 +152,7 @@ class MainActivity : Activity() {
         val hook = etWebhook.text.toString().trim()
         val remote = etRemote.text.toString().trim()
 
-        val weakens = (Prefs.lockTime(this) && !newLock) ||
-            (Prefs.strict(this) && !newStrict) ||
+        val weakens = (Prefs.strict(this) && !newStrict) ||
             (Prefs.shield(this) && !newShield) ||
             (Prefs.curfewOn(this) && (!newCurfew || cs != Prefs.curfewStart(this) || ce != Prefs.curfewEnd(this))) ||
             cd < Prefs.cooldownHours(this) ||
@@ -165,7 +162,7 @@ class MainActivity : Activity() {
             (Prefs.webhook(this).isNotEmpty() && hook != Prefs.webhook(this))
         if (weakens && !Gate.isUnlocked(this)) { toast("Locked: that change weakens protection. Unlock first."); return }
 
-        Prefs.setLockTime(this, newLock); Prefs.setStrict(this, newStrict); Prefs.setShield(this, newShield)
+        Prefs.setStrict(this, newStrict); Prefs.setShield(this, newShield)
         Prefs.setCurfewOn(this, newCurfew); Prefs.setCurfew(this, cs, ce); Prefs.setCooldownHours(this, cd)
         Prefs.setThreshold(this, th); Prefs.setDnsHost(this, dns); Prefs.setWebhook(this, hook); Prefs.setRemoteUrls(this, remote)
         if (weakens) Alerts.event(this, "SETTINGS_WEAKENED", "settings changed during unlock window")
@@ -215,13 +212,13 @@ WHAT IT DOES
 - Becomes the phone's Device Owner (set once from a computer with adb). After that Android itself stops you uninstalling it.
 - Hides the Telegram and X apps (and Telegram clients) so they cannot open at all, and blocks their websites.
 - Blocks VPNs: VPN configuration is locked, every app that can create a VPN (and apps with vpn/proxy/tor/DNS-changer style names) is hidden, and a VPN connection triggers an alarm.
-- Locks Private DNS to CleanBrowsing's adult filter, so every app's internet lookups go through it. CleanBrowsing sees your DNS lookups.
-- Allows only Chrome and Brave. All other browsers are hidden. In Chrome/Brave: about 300 built-in adult domains are blocked, incognito is off, SafeSearch is forced, and history cannot be deleted.
+- Locks Private DNS to CleanBrowsing's adult filter, so every app's internet lookups go through it. CleanBrowsing sees your DNS lookups, and its adult filter also applies SafeSearch to Google/Bing/YouTube at DNS level (change the DNS host in the app, with the unlock, if that causes wrong blocks).
+- Allows only Chrome and Brave. All other browsers are hidden. In Chrome/Brave: about 300 built-in adult domains are blocked, and incognito is off. SafeSearch is not forced and browsing history/cookies can still be cleared.
 - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 - Night curfew (default 23:00-06:00): all browsers plus Reddit, Instagram, Snapchat, TikTok and Discord are hidden.
 - If you set a partner alert URL (ntfy.sh, Discord or Slack), it sends them short alerts: blocks (app name only, never the page), VPN attempts, accessibility turned off, DNS changes, wrong PIN attempts and unlock requests.
-- Hides clone/virtual-space and root-tool apps, scans every newly installed app, disables installing from unknown sources, safe mode, adding users and work profiles, and locks the date and time.
+- Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock and alerts your partner). Installing from unknown sources stays allowed.
 
 WHAT IT MEANS FOR YOU
 - Any change that weakens protection (removing a block, turning a protection off, releasing the app) needs your PIN, then a cooling-off wait (default 24 hours), then the PIN again within 30 minutes. Your partner is alerted at every step. Adding protection is always instant.

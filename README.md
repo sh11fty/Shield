@@ -7,13 +7,13 @@
 > - Becomes the phone's Device Owner (set once from a computer with adb). After that Android itself stops you uninstalling it.
 > - Hides the Telegram and X apps (and Telegram clients) so they cannot open at all, and blocks their websites.
 > - Blocks VPNs: VPN configuration is locked, every app that can create a VPN (and apps with vpn/proxy/tor/DNS-changer style names) is hidden, and a VPN connection triggers an alarm.
-> - Locks Private DNS to CleanBrowsing's adult filter, so every app's internet lookups go through it. CleanBrowsing sees your DNS lookups.
-> - Allows only Chrome and Brave. All other browsers are hidden. In Chrome/Brave: about 300 built-in adult domains are blocked, incognito is off, SafeSearch is forced, and history cannot be deleted.
+> - Locks Private DNS to CleanBrowsing's adult filter, so every app's internet lookups go through it. CleanBrowsing sees your DNS lookups, and its adult filter also applies SafeSearch to Google/Bing/YouTube at DNS level (change the DNS host in the app, with the unlock, if that causes wrong blocks).
+> - Allows only Chrome and Brave. All other browsers are hidden. In Chrome/Brave: about 300 built-in adult domains are blocked, and incognito is off. SafeSearch is not forced and browsing history/cookies can still be cleared.
 > - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 > - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 > - Night curfew (default 23:00-06:00): all browsers plus Reddit, Instagram, Snapchat, TikTok and Discord are hidden.
 > - If you set a partner alert URL (ntfy.sh, Discord or Slack), it sends them short alerts: blocks (app name only, never the page), VPN attempts, accessibility turned off, DNS changes, wrong PIN attempts and unlock requests.
-> - Hides clone/virtual-space and root-tool apps, scans every newly installed app, disables installing from unknown sources, safe mode, adding users and work profiles, and locks the date and time.
+> - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock and alerts your partner). Installing from unknown sources stays allowed.
 >
 > WHAT IT MEANS FOR YOU
 > - Any change that weakens protection (removing a block, turning a protection off, releasing the app) needs your PIN, then a cooling-off wait (default 24 hours), then the PIN again within 30 minutes. Your partner is alerted at every step. Adding protection is always instant.
@@ -55,18 +55,18 @@ route, while leaving Android Settings usable (per your request; see "Strict mode
 | No uninstall | `setUninstallBlocked`, device-admin deactivation warns your partner |
 | Telegram / X | Package-prefix + label match -> `setApplicationHidden` (cannot launch at all); web domains blocked in browsers |
 | VPN | `no_config_vpn`; every app that declares `VpnService` is hidden; name/package heuristics (vpn, proxy, tor, dns...); tripwire if a VPN network comes up |
-| DNS | Private DNS locked to CleanBrowsing Adult Filter (blocks porn, forces SafeSearch); `no_config_private_dns`; restored if changed |
-| Browsers | Chrome and Brave allowed (all others hidden). Managed policy: URL blocklist (~304 domains, full list in `DOMAINS.txt`), incognito off, SafeSearch + Google SafeSites, DoH off, dev tools off, history can't be deleted |
+| DNS | Private DNS locked to CleanBrowsing Adult Filter (blocks porn; CleanBrowsing also applies SafeSearch to search engines at DNS level); `no_config_private_dns`; restored if changed |
+| Browsers | Chrome and Brave allowed (all others hidden). Managed policy: URL blocklist (~304 domains, full list in `DOMAINS.txt`), incognito off, DoH off, dev tools off (no forced SafeSearch; history and cookies can be cleared) |
 | Online blocklist | Downloads a public adult-domain list (StevenBlack porn hosts, ~60k+ domains) weekly and checks every URL/domain seen on screen against it. Rejects shrunken or tiny downloads; changing the URL needs the unlock. Chrome policy keeps the built-in ~300 (policy size limit); DNS filtering covers the long tail |
 | Everything else | Accessibility service scans on-screen text + URLs in **all** apps: blocked domain = instant block, strong keyword = block, 3 mild words = block |
 
 ## The 10 extra protections beyond the brief
 1. **Cooling-off unlock**: any change that weakens protection needs PIN -> 24h wait -> PIN again -> 15 min edit window. Partner is alerted at each step. Strengthening is always free.
-2. **Tamper-proof time**: auto-time forced + `no_config_date_time`, so you cannot clock-skip the 24h wait.
+2. **Clock watch**: the date/time is not locked, but if the clock jumps relative to the phone's uptime, a pending unlock is cancelled and your partner is alerted.
 3. **Self-healing**: 5 min alarm chain + 15 min persisted job + boot receiver re-apply everything; accessibility is re-enabled via `WRITE_SECURE_SETTINGS` if switched off; DNS restored if changed.
-4. **Browser lockdown**: incognito off, SafeSearch/SafeSites, DoH off, history can't be cleared (Chrome / Edge / Brave managed config).
+4. **Browser lockdown**: incognito off, DoH off, dev tools off (Chrome / Brave managed config).
 5. **Browser allow-list** (Chrome + Brave): every other browser (Firefox, Opera, DuckDuckGo, Samsung...) is hidden, since they can't be policy-managed.
-6. **Sideload / safe-mode / extra-user blocks**: `no_install_unknown_sources(_globally)`, `no_safe_boot` (safe mode would disable the accessibility scanner), `no_add_user`, `no_add_managed_profile`.
+6. **Safe-mode / extra-user blocks**: `no_safe_boot` (safe mode would disable the accessibility scanner), `no_add_user`, `no_add_managed_profile`.
 7. **Install watcher**: a new app is scanned the moment it is installed (VPNs, cloners, Telegram clients, browsers get hidden within seconds).
 8. **Night curfew** (default 23:00-06:00): all browsers plus Reddit/Instagram/Snapchat/TikTok/Discord are hidden.
 9. **Partner alerts**: ntfy.sh/Discord/Slack webhook for blocks, VPN, accessibility off, DNS change, PIN failures, unlock steps. Content is never sent, only the category and app.

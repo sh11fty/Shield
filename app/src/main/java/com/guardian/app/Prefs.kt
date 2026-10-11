@@ -44,8 +44,6 @@ object Prefs {
     fun setThreshold(c: Context, v: Int) = put(c) { putInt("threshold", v.coerceIn(1, 10)) }
     fun cooldownHours(c: Context) = i(c, "cooldown_h", 24)
     fun setCooldownHours(c: Context, v: Int) = put(c) { putInt("cooldown_h", v.coerceIn(1, 720)) }
-    fun lockTime(c: Context) = b(c, "lock_time", true)
-    fun setLockTime(c: Context, v: Boolean) = put(c) { putBoolean("lock_time", v) }
     fun strict(c: Context) = b(c, "strict", false)
     fun setStrict(c: Context, v: Boolean) = put(c) { putBoolean("strict", v) }
     fun shield(c: Context) = b(c, "shield", false)
