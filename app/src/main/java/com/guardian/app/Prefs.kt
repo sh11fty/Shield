@@ -42,8 +42,6 @@ object Prefs {
     fun setDnsHost(c: Context, v: String) = put(c) { putString("dns_host", v.trim().ifEmpty { DEFAULT_DNS }) }
     fun threshold(c: Context) = i(c, "threshold", 3)
     fun setThreshold(c: Context, v: Int) = put(c) { putInt("threshold", v.coerceIn(1, 10)) }
-    fun cooldownHours(c: Context) = i(c, "cooldown_h", 24)
-    fun setCooldownHours(c: Context, v: Int) = put(c) { putInt("cooldown_h", v.coerceIn(1, 720)) }
     fun strict(c: Context) = b(c, "strict", false)
     fun setStrict(c: Context, v: Boolean) = put(c) { putBoolean("strict", v) }
     fun shield(c: Context) = b(c, "shield", false)
@@ -62,8 +60,6 @@ object Prefs {
     fun remoteUpdatedAt(c: Context) = sp(c).getLong("remote_updated", 0L)
     fun remoteCount(c: Context) = i(c, "remote_count", 0)
     fun setRemoteState(c: Context, at: Long, count: Int) = put(c) { putLong("remote_updated", at); putInt("remote_count", count) }
-    fun webhook(c: Context) = s(c, "webhook", "")
-    fun setWebhook(c: Context, v: String) = put(c) { putString("webhook", v.trim()) }
 
     // ---- state ----
     fun hiddenByUs(c: Context): Set<String> = sp(c).getStringSet("hidden_by_us", emptySet())!!.toSet()

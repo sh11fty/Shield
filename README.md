@@ -12,21 +12,19 @@
 > - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 > - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 > - Night curfew (default 23:00-06:00): all browsers plus Reddit, Instagram, Snapchat, TikTok and Discord are hidden.
-> - If you set a partner alert URL (ntfy.sh, Discord or Slack), it sends them short alerts: blocks (app name only, never the page), VPN attempts, accessibility turned off, DNS changes, wrong PIN attempts and unlock requests.
 > - Every build installs as a SEPARATE app with its own package name and display name. It never updates an older copy and never updates itself. Only one app can be Device Owner, so to move to a newer build you must first release the old one (PIN + cooling-off) or factory reset.
-> - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock and alerts your partner). Installing from unknown sources stays allowed.
+> - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock). Installing from unknown sources stays allowed.
 >
 > WHAT IT MEANS FOR YOU
-> - Any change that weakens protection (removing a block, turning a protection off, releasing the app) needs your PIN, then a cooling-off wait (default 24 hours), then the PIN again within 30 minutes. Your partner is alerted at every step. Adding protection is always instant.
-> - Set the PIN together with a trusted person and let THEM keep it. If you forget it, the only way out is a factory reset of the phone.
+> - Any change that weakens protection (removing a block, turning a protection off, releasing the app) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules an edit window that opens at 11:00 the NEXT day and lasts 2 hours, then locks again. Nothing can speed this up. Adding protection is always instant. If you forget the PIN, the only way out is a factory reset of the phone.
 > - Work or school VPNs will stop working. Telegram and X apps stay hidden, even if you need them for something legitimate.
 > - It may block harmless pages that contain several adult keywords, or domains on the downloaded list that are wrong.
 > - Android Settings stays fully usable in this version. Strict mode (off by default) additionally blocks factory reset, USB debugging and force-stop.
 >
 > WHAT IT CANNOT STOP
-> - A factory reset from recovery, flashing the phone, another phone or computer, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes and your partner is told).
+> - A factory reset from recovery, flashing the phone, another phone or computer, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes).
 >
-> It collects nothing for any company and has no account. Its only network traffic is the weekly list download, DNS via CleanBrowsing, and the alert URL you choose.
+> It collects nothing for any company and has no account. Its only network traffic is the weekly list download and DNS via CleanBrowsing.
 >
 > Do not continue unless you want these restrictions on this phone.
 
@@ -48,12 +46,12 @@ route, while leaving Android Settings usable (per your request; see "Strict mode
    adb shell pm grant <package> android.permission.WRITE_SECURE_SETTINGS
    ```
 3. Open Guardian, tap **Apply protections now** (it enables its own accessibility service).
-4. Have your accountability partner set the **PIN**, and put their ntfy.sh / Discord / Slack URL in *Partner alert URL*.
+4. Set a **PIN**. Typing it only schedules an unlock for 11:00 the next day, so pick one you cannot talk yourself into using on impulse.
 
 ## What it does
 | Layer | How |
 |---|---|
-| No uninstall | `setUninstallBlocked`, device-admin deactivation warns your partner |
+| No uninstall | `setUninstallBlocked` |
 | Telegram / X | Package-prefix + label match -> `setApplicationHidden` (cannot launch at all); web domains blocked in browsers |
 | VPN | `no_config_vpn`; every app that declares `VpnService` is hidden; name/package heuristics (vpn, proxy, tor, dns...); tripwire if a VPN network comes up |
 | DNS | Private DNS locked to CleanBrowsing Adult Filter (blocks porn; CleanBrowsing also applies SafeSearch to search engines at DNS level); `no_config_private_dns`; restored if changed |
@@ -62,15 +60,15 @@ route, while leaving Android Settings usable (per your request; see "Strict mode
 | Everything else | Accessibility service scans on-screen text + URLs in **all** apps: blocked domain = instant block, strong keyword = block, 3 mild words = block |
 
 ## The 10 extra protections beyond the brief
-1. **Cooling-off unlock**: any change that weakens protection needs PIN -> 24h wait -> PIN again -> 15 min edit window. Partner is alerted at each step. Strengthening is always free.
-2. **Clock watch**: the date/time is not locked, but if the clock jumps relative to the phone's uptime, a pending unlock is cancelled and your partner is alerted.
+1. **Next-day PIN unlock**: any change that weakens protection needs the PIN, and typing it only opens an edit window at 11:00 the next day (2 hours). Strengthening is always free.
+2. **Clock watch**: the date/time is not locked, but if the clock jumps relative to the phone's uptime, a pending unlock is cancelled.
 3. **Self-healing**: 5 min alarm chain + 15 min persisted job + boot receiver re-apply everything; accessibility is re-enabled via `WRITE_SECURE_SETTINGS` if switched off; DNS restored if changed.
 4. **Browser lockdown**: incognito off, DoH off, dev tools off (Chrome / Brave managed config).
 5. **Browser allow-list** (Chrome + Brave): every other browser (Firefox, Opera, DuckDuckGo, Samsung...) is hidden, since they can't be policy-managed.
 6. **Safe-mode / extra-user blocks**: `no_safe_boot` (safe mode would disable the accessibility scanner), `no_add_user`, `no_add_managed_profile`.
 7. **Install watcher**: a new app is scanned the moment it is installed (VPNs, cloners, Telegram clients, browsers get hidden within seconds).
 8. **Night curfew** (default 23:00-06:00): all browsers plus Reddit/Instagram/Snapchat/TikTok/Discord are hidden.
-9. **Partner alerts**: ntfy.sh/Discord/Slack webhook for blocks, VPN, accessibility off, DNS change, PIN failures, unlock steps. Content is never sent, only the category and app.
+9. **Local event log**: blocks, VPN attempts, accessibility/DNS tampering and unlock requests are listed on the main screen. Nothing is sent anywhere.
 10. **Block screen with friction**: 15 s forced pause, no back button, running block counter. Plus cloner/virtual-space app hiding (Parallel Space, Island, Lucky Patcher, Magisk...).
 
 Optional: **Self-shield** (kicks you out of Settings pages that show "Guardian") and **Strict mode** (blocks factory reset, USB debugging and force-stop/clear-data). Both default OFF because you asked to keep Settings free.
@@ -78,6 +76,6 @@ Optional: **Self-shield** (kicks you out of Settings pages that show "Guardian")
 ## Known bypasses (honest list)
 - Factory reset from recovery/bootloader or flashing the phone (turn on Strict mode and have someone else hold the bootloader/BIOS-style passwords).
 - `adb` while debugging is on: with the device owner set it cannot be removed by adb, but Strict mode also blocks enabling debugging.
-- A second phone/laptop, or mobile data on another device. Nothing on this phone can stop that; that is what the partner alerts are for.
-- Because Settings is open, you can disable the accessibility service (it is re-enabled within 5 minutes and the partner is told), and turn on a hotspot-sharing device.
+- A second phone/laptop, or mobile data on another device. Nothing on this phone can stop that.
+- Because Settings is open, you can disable the accessibility service (it is re-enabled within 5 minutes), and turn on a hotspot-sharing device.
 - Apps that bring their own browser engine and are not VPNs (e.g. in-app browsers) are only covered by the on-screen text scanner, not the URL blocklist.

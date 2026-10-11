@@ -28,10 +28,8 @@ class MainActivity : Activity() {
     private lateinit var cbCurfew: CheckBox
     private lateinit var etCurfewStart: EditText
     private lateinit var etCurfewEnd: EditText
-    private lateinit var etCooldown: EditText
     private lateinit var etThreshold: EditText
     private lateinit var etDns: EditText
-    private lateinit var etWebhook: EditText
     private lateinit var etRemote: EditText
 
     private val setupCmds: String
@@ -84,8 +82,7 @@ class MainActivity : Activity() {
         pinField = EditText(this).apply { hint = "PIN"; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD }
         root.addView(pinField)
         button("Set / change PIN") { toast(Gate.setPin(this, pinField.text.toString())); refresh() }
-        button("1. Request unlock (starts cooling-off)") { toast(Gate.requestUnlock(this, pinField.text.toString())); refresh() }
-        button("2. Confirm unlock (after cooling-off)") { toast(Gate.confirmUnlock(this, pinField.text.toString())); refresh() }
+        button("Request unlock (opens 11:00 tomorrow for 2 hours)") { toast(Gate.requestUnlock(this, pinField.text.toString())); refresh() }
         button("Lock again now") { Gate.lock(this); refresh() }
 
         head("Settings")
@@ -94,10 +91,8 @@ class MainActivity : Activity() {
         cbCurfew = check("Night curfew: hide all browsers + curfew apps", Prefs.curfewOn(this))
         etCurfewStart = num("Curfew start hour (0-23)", Prefs.curfewStart(this))
         etCurfewEnd = num("Curfew end hour (0-23)", Prefs.curfewEnd(this))
-        etCooldown = num("Cooling-off hours", Prefs.cooldownHours(this))
         etThreshold = num("Keyword threshold (3 = one strong word or three mild)", Prefs.threshold(this))
         etDns = field("Private DNS host (family filter)", Prefs.dnsHost(this))
-        etWebhook = field("Partner alert URL (ntfy.sh/topic, Discord or Slack webhook)", Prefs.webhook(this))
         etRemote = EditText(this).apply {
             setText(Prefs.remoteUrlsRaw(this@MainActivity)); minLines = 2; gravity = android.view.Gravity.TOP
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
@@ -146,25 +141,21 @@ class MainActivity : Activity() {
         val newShield = cbShield.isChecked; val newCurfew = cbCurfew.isChecked
         val cs = etCurfewStart.text.toString().toIntOrNull() ?: Prefs.curfewStart(this)
         val ce = etCurfewEnd.text.toString().toIntOrNull() ?: Prefs.curfewEnd(this)
-        val cd = etCooldown.text.toString().toIntOrNull() ?: Prefs.cooldownHours(this)
         val th = etThreshold.text.toString().toIntOrNull() ?: Prefs.threshold(this)
         val dns = etDns.text.toString().trim().ifEmpty { Prefs.DEFAULT_DNS }
-        val hook = etWebhook.text.toString().trim()
         val remote = etRemote.text.toString().trim()
 
         val weakens = (Prefs.strict(this) && !newStrict) ||
             (Prefs.shield(this) && !newShield) ||
             (Prefs.curfewOn(this) && (!newCurfew || cs != Prefs.curfewStart(this) || ce != Prefs.curfewEnd(this))) ||
-            cd < Prefs.cooldownHours(this) ||
             th > Prefs.threshold(this) ||
             dns != Prefs.dnsHost(this) ||
-            (remote != Prefs.remoteUrlsRaw(this).trim() && Prefs.remoteUrlsRaw(this).isNotBlank()) ||
-            (Prefs.webhook(this).isNotEmpty() && hook != Prefs.webhook(this))
+            (remote != Prefs.remoteUrlsRaw(this).trim() && Prefs.remoteUrlsRaw(this).isNotBlank())
         if (weakens && !Gate.isUnlocked(this)) { toast("Locked: that change weakens protection. Unlock first."); return }
 
         Prefs.setStrict(this, newStrict); Prefs.setShield(this, newShield)
-        Prefs.setCurfewOn(this, newCurfew); Prefs.setCurfew(this, cs, ce); Prefs.setCooldownHours(this, cd)
-        Prefs.setThreshold(this, th); Prefs.setDnsHost(this, dns); Prefs.setWebhook(this, hook); Prefs.setRemoteUrls(this, remote)
+        Prefs.setCurfewOn(this, newCurfew); Prefs.setCurfew(this, cs, ce)
+        Prefs.setThreshold(this, th); Prefs.setDnsHost(this, dns); Prefs.setRemoteUrls(this, remote)
         if (weakens) Alerts.event(this, "SETTINGS_WEAKENED", "settings changed during unlock window")
         Enforcer.applyAsync(this, "settings saved")
         toast("Saved"); refresh()
@@ -217,21 +208,19 @@ WHAT IT DOES
 - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 - Night curfew (default 23:00-06:00): all browsers plus Reddit, Instagram, Snapchat, TikTok and Discord are hidden.
-- If you set a partner alert URL (ntfy.sh, Discord or Slack), it sends them short alerts: blocks (app name only, never the page), VPN attempts, accessibility turned off, DNS changes, wrong PIN attempts and unlock requests.
 - Every build installs as a SEPARATE app with its own package name and display name. It never updates an older copy and never updates itself. Only one app can be Device Owner, so to move to a newer build you must first release the old one (PIN + cooling-off) or factory reset.
-- Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock and alerts your partner). Installing from unknown sources stays allowed.
+- Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock). Installing from unknown sources stays allowed.
 
 WHAT IT MEANS FOR YOU
-- Any change that weakens protection (removing a block, turning a protection off, releasing the app) needs your PIN, then a cooling-off wait (default 24 hours), then the PIN again within 30 minutes. Your partner is alerted at every step. Adding protection is always instant.
-- Set the PIN together with a trusted person and let THEM keep it. If you forget it, the only way out is a factory reset of the phone.
+- Any change that weakens protection (removing a block, turning a protection off, releasing the app) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules an edit window that opens at 11:00 the NEXT day and lasts 2 hours, then locks again. Nothing can speed this up. Adding protection is always instant. If you forget the PIN, the only way out is a factory reset of the phone.
 - Work or school VPNs will stop working. Telegram and X apps stay hidden, even if you need them for something legitimate.
 - It may block harmless pages that contain several adult keywords, or domains on the downloaded list that are wrong.
 - Android Settings stays fully usable in this version. Strict mode (off by default) additionally blocks factory reset, USB debugging and force-stop.
 
 WHAT IT CANNOT STOP
-- A factory reset from recovery, flashing the phone, another phone or computer, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes and your partner is told).
+- A factory reset from recovery, flashing the phone, another phone or computer, or switching the accessibility service off in Settings (it is re-enabled within about 5 minutes).
 
-It collects nothing for any company and has no account. Its only network traffic is the weekly list download, DNS via CleanBrowsing, and the alert URL you choose.
+It collects nothing for any company and has no account. Its only network traffic is the weekly list download and DNS via CleanBrowsing.
 
 Do not continue unless you want these restrictions on this phone."""
     }

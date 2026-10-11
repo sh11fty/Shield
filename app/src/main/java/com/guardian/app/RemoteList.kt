@@ -8,7 +8,7 @@ import java.net.URL
 /**
  * Downloads public adult-domain lists (hosts-file or plain format), keeps them in app storage and feeds
  * them to the on-screen scanner. Refreshed weekly. A download that is suspiciously small is rejected,
- * so a tampered URL cannot silently shrink the list; changing the URL is gated by the unlock cooling-off.
+ * so a tampered URL cannot silently shrink the list; changing the URL is gated by the PIN unlock.
  */
 object RemoteList {
     private const val WEEK = 7 * 24 * 3_600_000L

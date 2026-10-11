@@ -13,7 +13,7 @@ class GuardianAdminReceiver : DeviceAdminReceiver() {
 
     override fun onDisableRequested(context: Context, intent: Intent): CharSequence {
         Alerts.event(context, "ADMIN_DISABLE_REQUEST", "someone tried to deactivate the device admin")
-        return "Guardian protects you from content you asked to block. Your accountability partner is notified."
+        return "Guardian protects you from content you asked to block."
     }
 
     override fun onDisabled(context: Context, intent: Intent) {

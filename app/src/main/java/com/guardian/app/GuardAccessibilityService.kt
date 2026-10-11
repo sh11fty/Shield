@@ -87,7 +87,7 @@ class GuardAccessibilityService : AccessibilityService() {
         }, 200)
     }
 
-    /** Tripwire: if any VPN transport comes up, hide every VPN-capable app and tell the partner. */
+    /** Tripwire: if any VPN transport comes up, hide every VPN-capable app. */
     private fun watchVpn() {
         runCatching {
             val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
