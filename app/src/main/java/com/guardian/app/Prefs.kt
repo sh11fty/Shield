@@ -44,6 +44,8 @@ object Prefs {
     fun setThreshold(c: Context, v: Int) = put(c) { putInt("threshold", v.coerceIn(1, 10)) }
     fun strict(c: Context) = b(c, "strict", false)
     fun setStrict(c: Context, v: Boolean) = put(c) { putBoolean("strict", v) }
+    fun scanText(c: Context) = b(c, "scan_text", false)
+    fun setScanText(c: Context, v: Boolean) = put(c) { putBoolean("scan_text", v) }
     fun shield(c: Context) = b(c, "shield", false)
     fun setShield(c: Context, v: Boolean) = put(c) { putBoolean("shield", v) }
     fun curfewOn(c: Context) = b(c, "curfew_on", true)

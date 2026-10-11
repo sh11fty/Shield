@@ -31,6 +31,7 @@ class MainActivity : Activity() {
 
     private lateinit var swStrict: Switch
     private lateinit var swShield: Switch
+    private lateinit var swScan: Switch
     private lateinit var swCurfew: Switch
     private lateinit var etCurfewStart: EditText
     private lateinit var etCurfewEnd: EditText
@@ -135,8 +136,9 @@ class MainActivity : Activity() {
         val set = Ui.column(this)
         swStrict = Ui.toggle(this, "Strict mode: block factory reset, USB debugging and force-stop", Prefs.strict(this))
         swShield = Ui.toggle(this, "Self-shield: kick out of Settings pages showing this app", Prefs.shield(this))
+        swScan = Ui.toggle(this, "Read on-screen text for blocked words (off = lighter, uses DNS, VPN and site blocks instead)", Prefs.scanText(this))
         swCurfew = Ui.toggle(this, "Night curfew: hide Instagram and TikTok apps (UK time)", Prefs.curfewOn(this))
-        set.addView(swStrict); set.addView(swShield); set.addView(swCurfew)
+        set.addView(swStrict); set.addView(swShield); set.addView(swScan); set.addView(swCurfew)
         set.addView(Ui.label(this, "Curfew hours (0-23)"))
         val hours = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         etCurfewStart = Ui.input(this, "from", Prefs.curfewStart(this).toString(), InputType.TYPE_CLASS_NUMBER)
@@ -245,7 +247,7 @@ class MainActivity : Activity() {
 
     private fun saveSettings() {
         val newStrict = swStrict.isChecked
-        val newShield = swShield.isChecked; val newCurfew = swCurfew.isChecked
+        val newShield = swShield.isChecked; val newScan = swScan.isChecked; val newCurfew = swCurfew.isChecked
         val cs = etCurfewStart.text.toString().toIntOrNull() ?: Prefs.curfewStart(this)
         val ce = etCurfewEnd.text.toString().toIntOrNull() ?: Prefs.curfewEnd(this)
         val th = etThreshold.text.toString().toIntOrNull() ?: Prefs.threshold(this)
@@ -254,13 +256,14 @@ class MainActivity : Activity() {
 
         val weakens = (Prefs.strict(this) && !newStrict) ||
             (Prefs.shield(this) && !newShield) ||
+            (Prefs.scanText(this) && !newScan) ||
             (Prefs.curfewOn(this) && (!newCurfew || cs != Prefs.curfewStart(this) || ce != Prefs.curfewEnd(this))) ||
             th > Prefs.threshold(this) ||
             dns != Prefs.dnsHost(this) ||
             (remote != Prefs.remoteUrlsRaw(this).trim() && Prefs.remoteUrlsRaw(this).isNotBlank())
         if (weakens && !Gate.isUnlocked(this)) { toast("Locked: that change weakens protection. Unlock first."); return }
 
-        Prefs.setStrict(this, newStrict); Prefs.setShield(this, newShield)
+        Prefs.setStrict(this, newStrict); Prefs.setShield(this, newShield); Prefs.setScanText(this, newScan)
         Prefs.setCurfewOn(this, newCurfew); Prefs.setCurfew(this, cs, ce)
         Prefs.setThreshold(this, th); Prefs.setDnsHost(this, dns); Prefs.setRemoteUrls(this, remote)
         if (weakens) Alerts.event(this, "SETTINGS_WEAKENED", "settings changed during unlock window")

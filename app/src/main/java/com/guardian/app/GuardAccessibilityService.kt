@@ -63,6 +63,9 @@ class GuardAccessibilityService : AccessibilityService() {
             }
             return
         }
+        // Light mode: only app-open blocking and the Settings tamper check; no page-text reading.
+        val light = !Prefs.scanText(this)
+        if (light && !(type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && pkg in SETTINGS && Prefs.shield(this))) return
         val now = SystemClock.uptimeMillis()
         val gap = if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || type == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) 500L else 2500L
         if (scanning || now - lastScan < gap) return
@@ -104,6 +107,7 @@ class GuardAccessibilityService : AccessibilityService() {
             Alerts.event(this, "TAMPER", "opened Guardian's own settings page")
             return
         }
+        if (!Prefs.scanText(this)) return
         refreshConfig()
         val hit = Matcher.evaluate(text, domains, strong, mild, threshold)
         if (hit != null) onHit(pkg, hit)
