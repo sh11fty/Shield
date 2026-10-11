@@ -25,11 +25,17 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: Guardian (latest build)
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
           prerelease: true
           target_commitish: ${{ github.sha }}
           body: |
-            Debug-signed APK built from commit ${{ github.sha }}.
+            Debug-signed APK from commit ${{ github.sha }}. It installs as its own app
+            (package `com.guardian.app.b${{ github.run_number }}`) and never updates another copy or itself.
             Read the first screen of the app and the README before installing.
+
+            ```
+            adb shell dpm set-device-owner com.guardian.app.b${{ github.run_number }}/com.guardian.app.GuardianAdminReceiver
+            adb shell pm grant com.guardian.app.b${{ github.run_number }} android.permission.WRITE_SECURE_SETTINGS
+            ```
           files: app/build/outputs/apk/debug/app-debug.apk

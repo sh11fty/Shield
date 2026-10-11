@@ -13,6 +13,7 @@
 > - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 > - Night curfew (default 23:00-06:00): all browsers plus Reddit, Instagram, Snapchat, TikTok and Discord are hidden.
 > - If you set a partner alert URL (ntfy.sh, Discord or Slack), it sends them short alerts: blocks (app name only, never the page), VPN attempts, accessibility turned off, DNS changes, wrong PIN attempts and unlock requests.
+> - Every build installs as a SEPARATE app with its own package name and display name. It never updates an older copy and never updates itself. Only one app can be Device Owner, so to move to a newer build you must first release the old one (PIN + cooling-off) or factory reset.
 > - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock and alerts your partner). Installing from unknown sources stays allowed.
 >
 > WHAT IT MEANS FOR YOU
@@ -36,15 +37,15 @@ uninstalled or force-disabled from the normal UI. It blocks adult sites/keywords
 route, while leaving Android Settings usable (per your request; see "Strict mode" to change that).
 
 ## Build
-- GitHub: every push to `main` builds the APK and publishes it under **Releases > Guardian (latest build)** (installable from a phone).
+- GitHub: every push to `main` builds the APK and publishes it under **Releases** as a new release per build, "Build N" (installable from a phone). Each build is a separate app with its own package and name, and nothing ever auto-updates.
 - Or Android Studio / `./gradlew assembleDebug` -> `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Install (one time)
 1. Install the APK. Remove **all accounts** from the phone (Settings > Accounts); re-add them afterwards.
-2. Enable USB debugging (or Wireless debugging + the LADB app if you have no computer), then run:
+2. `<package>` is the build's package name, e.g. `com.guardian.app.b7` (the app shows it in its setup box and the release notes list the exact commands). Enable USB debugging (or Wireless debugging + the LADB app if you have no computer), then run:
    ```
-   adb shell dpm set-device-owner com.guardian.app/.GuardianAdminReceiver
-   adb shell pm grant com.guardian.app android.permission.WRITE_SECURE_SETTINGS
+   adb shell dpm set-device-owner <package>/com.guardian.app.GuardianAdminReceiver
+   adb shell pm grant <package> android.permission.WRITE_SECURE_SETTINGS
    ```
 3. Open Guardian, tap **Apply protections now** (it enables its own accessibility service).
 4. Have your accountability partner set the **PIN**, and put their ntfy.sh / Discord / Slack URL in *Partner alert URL*.

@@ -35,7 +35,7 @@ class MainActivity : Activity() {
     private lateinit var etRemote: EditText
 
     private val setupCmds: String
-        get() = "adb shell dpm set-device-owner $packageName/.GuardianAdminReceiver\n" +
+        get() = "adb shell dpm set-device-owner $packageName/com.guardian.app.GuardianAdminReceiver\n" +
             "adb shell pm grant $packageName android.permission.WRITE_SECURE_SETTINGS"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -218,6 +218,7 @@ WHAT IT DOES
 - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 - Night curfew (default 23:00-06:00): all browsers plus Reddit, Instagram, Snapchat, TikTok and Discord are hidden.
 - If you set a partner alert URL (ntfy.sh, Discord or Slack), it sends them short alerts: blocks (app name only, never the page), VPN attempts, accessibility turned off, DNS changes, wrong PIN attempts and unlock requests.
+- Every build installs as a SEPARATE app with its own package name and display name. It never updates an older copy and never updates itself. Only one app can be Device Owner, so to move to a newer build you must first release the old one (PIN + cooling-off) or factory reset.
 - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and watches the system clock (it is NOT locked; changing it cancels a pending unlock and alerts your partner). Installing from unknown sources stays allowed.
 
 WHAT IT MEANS FOR YOU
