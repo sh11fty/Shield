@@ -133,7 +133,8 @@ object Enforcer {
     private fun desiredHidden(ctx: Context): Pair<Set<String>, Map<String, String>> {
         val pm = ctx.packageManager
         val reasons = LinkedHashMap<String, String>()
-        fun add(p: String, why: String) { if (!neverHide(ctx, p)) reasons.putIfAbsent(p, why) }
+        val allow = Prefs.browserAllow(ctx).toSet()
+        fun add(p: String, why: String) { if (!neverHide(ctx, p) && p !in allow) reasons.putIfAbsent(p, why) }
 
         @Suppress("QueryPermissionsNeeded")
         val apps = pm.getInstalledApplications(0)
@@ -166,7 +167,6 @@ object Enforcer {
         }
 
         // other browsers (no managed policy possible) and curfew
-        val allow = Prefs.browserAllow(ctx).toSet()
         val curfew = Curfew.active(ctx)
         val browsers = runCatching {
             val i = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_BROWSER)
@@ -177,7 +177,7 @@ object Enforcer {
             pm.queryIntentActivities(i, PackageManager.MATCH_ALL).map { it.activityInfo.packageName }.toSet()
         }.getOrDefault(emptySet())
         for (p in browsers) {
-            if (p !in allow) add(p, "browser")
+            add(p, "browser")
         }
         // Chromium shells that only appear as VIEW handlers with a launcher icon and "browser" label
         for (p in viewers) {
