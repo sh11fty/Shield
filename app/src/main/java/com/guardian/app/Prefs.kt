@@ -46,6 +46,10 @@ object Prefs {
     fun setStrict(c: Context, v: Boolean) = put(c) { putBoolean("strict", v) }
     fun scanText(c: Context) = b(c, "scan_text", false)
     fun setScanText(c: Context, v: Boolean) = put(c) { putBoolean("scan_text", v) }
+    fun dnsBad(c: Context) = i(c, "dns_bad", 0)
+    fun setDnsBad(c: Context, v: Int) = put(c) { putInt("dns_bad", v) }
+    fun dnsFallbackUntil(c: Context) = sp(c).getLong("dns_fallback_until", 0L)
+    fun setDnsFallbackUntil(c: Context, v: Long) = put(c) { putLong("dns_fallback_until", v) }
     fun shield(c: Context) = b(c, "shield", false)
     fun setShield(c: Context, v: Boolean) = put(c) { putBoolean("shield", v) }
     fun curfewOn(c: Context) = b(c, "curfew_on", true)

@@ -106,13 +106,43 @@ object Enforcer {
         return "Restrictions: ${want.size} active (VPN config, DNS config, safe mode, extra users/profiles; sideloading and date/time are NOT restricted)"
     }
 
+    /** True when the active network claims internet but fails validation (strict private DNS that cannot resolve gives exactly this). */
+    private fun networkBroken(ctx: Context): Boolean = runCatching {
+        val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return@runCatching false
+        caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            !caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) &&
+            !caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
+    }.getOrDefault(false)
+
     // ---------- private DNS ----------
     private fun privateDns(ctx: Context, d: DevicePolicyManager, a: ComponentName): String {
         val host = Prefs.dnsHost(ctx)
         val cr = ctx.contentResolver
         val mode = Settings.Global.getString(cr, "private_dns_mode")
         val spec = Settings.Global.getString(cr, "private_dns_specifier")
-        if (mode == "hostname" && spec == host) { Prefs.setDnsEverSet(ctx); return "DNS: locked to $host" }
+        val now = System.currentTimeMillis()
+        val until = Prefs.dnsFallbackUntil(ctx)
+        if (until > now) {
+            if (mode != "opportunistic") runCatching { d.setGlobalPrivateDnsModeOpportunistic(a) }
+            return "DNS: filter paused (CleanBrowsing unreachable), retrying in ${(until - now) / 60000} min"
+        }
+        if (until != 0L) { Prefs.setDnsFallbackUntil(ctx, 0L); Prefs.setDnsBad(ctx, 0) }
+        if (mode == "hostname" && spec == host) {
+            Prefs.setDnsEverSet(ctx)
+            if (networkBroken(ctx)) {
+                val bad = Prefs.dnsBad(ctx) + 1
+                Prefs.setDnsBad(ctx, bad)
+                if (bad >= 3) {
+                    Prefs.setDnsFallbackUntil(ctx, now + 30 * 60_000L)
+                    Prefs.setDnsBad(ctx, 0)
+                    runCatching { d.setGlobalPrivateDnsModeOpportunistic(a) }
+                    Alerts.event(ctx, "DNS_FALLBACK", "no working internet with private DNS $host; filter paused 30 min")
+                    return "DNS: filter paused for 30 min (no internet with $host)"
+                }
+            } else Prefs.setDnsBad(ctx, 0)
+            return "DNS: locked to $host"
+        }
         if (Prefs.dnsEverSet(ctx)) Alerts.event(ctx, "DNS_TAMPER", "private DNS changed to ${mode}/${spec}; restoring")
         return try {
             val r = d.setGlobalPrivateDnsModeSpecifiedHost(a, host)
