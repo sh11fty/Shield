@@ -50,6 +50,8 @@ object Prefs {
     fun setDnsBad(c: Context, v: Int) = put(c) { putInt("dns_bad", v) }
     fun dnsFallbackUntil(c: Context) = sp(c).getLong("dns_fallback_until", 0L)
     fun setDnsFallbackUntil(c: Context, v: Long) = put(c) { putLong("dns_fallback_until", v) }
+    fun hideConfirmed(c: Context) = b(c, "hide_confirmed", false)
+    fun setHideConfirmed(c: Context, v: Boolean) = put(c) { putBoolean("hide_confirmed", v) }
     fun shield(c: Context) = b(c, "shield", false)
     fun setShield(c: Context, v: Boolean) = put(c) { putBoolean("shield", v) }
     fun curfewOn(c: Context) = b(c, "curfew_on", true)

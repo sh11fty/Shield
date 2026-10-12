@@ -12,11 +12,11 @@
 > - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 > - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 > - Night curfew (default 23:00-06:00 UK time): the Instagram and TikTok apps are hidden. Browsers are not affected.
-> - Builds share one package and one fixed signing key. A newer build only installs when you run `adb install -r` from a computer; it replaces the old one and keeps Device Owner. The app never updates itself. Builds made before the fixed key (b1 to b10) use other package names and cannot be updated: release them first (PIN, then the next-day unlock).
+> - Builds share one package and one fixed signing key. A newer build only installs when you run `adb install -r` from a computer; it replaces the old one and keeps Device Owner. The app never updates itself. Builds made before the fixed key (b1 to b10) use other package names and cannot be updated: release them first (PIN, then the 10-minute unlock).
 > - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and takes the time from the internet (UK time) for the unlock window and curfew, so changing the phone's clock does nothing; if the UK time cannot be verified, everything stays locked. Installing from unknown sources stays allowed.
 >
 > WHAT IT MEANS FOR YOU
-> - Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens at 14:00 UK time the NEXT day and lasts only 5 minutes. Open the app during those 5 minutes to make changes. Adding protection is always instant.
+> - Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens 10 minutes later and lasts only 5 minutes (test build). Open the app during those 5 minutes to make changes. Adding protection is always instant.
 > - That 5-minute window is also the ONLY way to uninstall Guardian: tap Release & uninstall inside it. If you miss it you must request again and wait another day.
 > - Nothing can speed this up. If you forget the PIN, the only way out is a factory reset of the phone.
 > - Work or school VPNs will stop working. Telegram and X apps stay hidden, even if you need them for something legitimate.
@@ -48,7 +48,7 @@ route, while leaving Android Settings usable (per your request; see "Strict mode
    adb shell pm grant <package> android.permission.WRITE_SECURE_SETTINGS
    ```
 3. Open Guardian, tap **Apply protections now** (it enables its own accessibility service).
-4. Set a **PIN**. Typing it only schedules a 5-minute window at 14:00 the next day (also the only way to uninstall), so pick one you cannot talk yourself into using on impulse.
+4. Set a **PIN**. Typing it only schedules a 5-minute window that opens 10 minutes later (also the only way to uninstall), so pick one you cannot talk yourself into using on impulse.
 
 ## What it does
 | Layer | How |
@@ -62,7 +62,7 @@ route, while leaving Android Settings usable (per your request; see "Strict mode
 | Everything else | Accessibility service scans on-screen text + URLs in **all** apps: blocked domain = instant block, strong keyword = block, 3 mild words = block |
 
 ## The 10 extra protections beyond the brief
-1. **Next-day PIN unlock**: any change that weakens protection needs the PIN, and typing it only opens a window at 14:00 the next day for 5 minutes, which is also the only way to uninstall. Strengthening is always free.
+1. **Delayed PIN unlock**: any change that weakens protection needs the PIN, and typing it only opens a window 10 minutes later for 5 minutes, which is also the only way to uninstall. Strengthening is always free.
 2. **Internet time (UK)**: the unlock window and curfew use time from `uk.pool.ntp.org` (fallbacks: Cloudflare, Google, gov.uk), not the phone clock, so changing the phone's date/time does nothing. If the time can't be verified the app stays locked.
 3. **Self-healing**: 5 min alarm chain + 15 min persisted job + boot receiver re-apply everything; accessibility is re-enabled via `WRITE_SECURE_SETTINGS` if switched off; DNS restored if changed.
 4. **Browser lockdown**: incognito off, DoH off, dev tools off (Chrome / Brave managed config).

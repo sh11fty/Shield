@@ -101,7 +101,7 @@ object Enforcer {
     // ---------- user restrictions ----------
     private fun restrictions(ctx: Context, d: DevicePolicyManager, a: ComponentName): String {
         val want = mutableSetOf(R_VPN, R_DNS, R_SAFE, R_USER, R_PROFILE)
-        if (Prefs.strict(ctx)) want += listOf(R_RESET, R_ADB, R_CTRL)
+        if (Prefs.strict(ctx)) want += listOf(R_RESET, R_ADB)
         for (r in MANAGED_RESTRICTIONS) runCatching { if (r in want) d.addUserRestriction(a, r) else d.clearUserRestriction(a, r) }
         return "Restrictions: ${want.size} active (VPN config, DNS config, safe mode, extra users/profiles; sideloading and date/time are NOT restricted)"
     }
@@ -218,11 +218,26 @@ object Enforcer {
         return reasons.keys to reasons
     }
 
+    private val CONFIRM_REASONS = setOf("browser", "vpn", "vpn-name", "cloner")
+
+    /** Browsers and VPN apps Harbor would hide, listed for the one-time confirmation. */
+    fun pendingConfirmation(ctx: Context): List<String> {
+        if (Prefs.hideConfirmed(ctx)) return emptyList()
+        val (_, reasons) = desiredHidden(ctx)
+        val pm = ctx.packageManager
+        return reasons.filter { it.value in CONFIRM_REASONS }.keys.map { p ->
+            val l = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(p, 0)).toString() }.getOrDefault(p)
+            "$l ($p)"
+        }.sorted()
+    }
+
     private fun hideApps(ctx: Context, d: DevicePolicyManager, a: ComponentName): String {
         val (want, reasons) = desiredHidden(ctx)
         val mine = Prefs.hiddenByUs(ctx).toMutableSet()
         var newlyHidden = 0
+        val confirmed = Prefs.hideConfirmed(ctx)
         for (p in want) {
+            if (!confirmed && reasons[p] in CONFIRM_REASONS) continue
             val ok = runCatching { d.setApplicationHidden(a, p, true) }.getOrDefault(false)
             if (ok && mine.add(p)) {
                 newlyHidden++
@@ -234,7 +249,7 @@ object Enforcer {
             if (runCatching { d.setApplicationHidden(a, p, false) }.getOrDefault(false)) mine.remove(p)
         }
         Prefs.setHiddenByUs(ctx, mine)
-        return "Apps hidden: ${mine.size} (+$newlyHidden new)${if (Curfew.active(ctx)) " [CURFEW ACTIVE]" else ""}"
+        return "${if (confirmed) "" else "Browser/VPN hiding waits for your confirmation in the app. "}Apps hidden: ${mine.size} (+$newlyHidden new)${if (Curfew.active(ctx)) " [CURFEW ACTIVE]" else ""}"
     }
 
     // ---------- browser managed policies ----------
@@ -266,6 +281,7 @@ object Enforcer {
 
     // ---------- release (only reachable through the Gate) ----------
     fun releaseAll(ctx: Context): String {
+        Prefs.setHideConfirmed(ctx, false)
         if (!isOwner(ctx)) return "Not device owner."
         val d = dpm(ctx)
         val a = admin(ctx)

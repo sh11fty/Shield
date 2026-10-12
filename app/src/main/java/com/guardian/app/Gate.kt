@@ -2,18 +2,19 @@ package com.guardian.app
 
 import android.content.Context
 import java.text.DateFormat
-import java.util.Calendar
 import java.util.Date
 
 /**
  * Anything that WEAKENS protection (removing a block, turning a toggle off, changing the PIN) needs the PIN.
- * Typing the PIN does not unlock anything yet: it schedules a window that opens at 14:00 UK time the NEXT day
+ * Typing the PIN does not unlock anything yet: it schedules a window that opens 10 minutes later
  * and lasts only 5 minutes. During it you can change settings and use "Release & uninstall", which is the ONLY
  * way to uninstall. Time comes from the internet (see TrustedTime), so changing the phone's clock does nothing;
  * if the time cannot be verified the app stays locked. Strengthening is always free. No PIN = everything open.
  */
 object Gate {
     private const val WINDOW_MS = 5 * 60_000L
+    /** Test build: the window opens 10 minutes after the PIN is entered. */
+    private const val DELAY_MS = 10 * 60_000L
 
     fun isUnlocked(c: Context): Boolean {
         if (!Prefs.hasPin(c)) return true
@@ -34,19 +35,8 @@ object Gate {
         return when {
             r != 0L && now >= r && now < u -> "UNLOCKED until ${fmt(u)}. Changes and Release & uninstall are allowed now."
             r > now -> "Unlock requested. The 5-minute window opens at ${fmt(r)}."
-            else -> "LOCKED. Enter the PIN to request an unlock; it opens at 14:00 UK time tomorrow for 5 minutes."
+            else -> "LOCKED. Enter the PIN to request an unlock; it opens 10 minutes later and lasts 5 minutes."
         }
-    }
-
-    private fun nextDayFourteen(now: Long): Long {
-        val cal = Calendar.getInstance(TrustedTime.UK)
-        cal.timeInMillis = now
-        cal.add(Calendar.DAY_OF_YEAR, 1)
-        cal.set(Calendar.HOUR_OF_DAY, 14)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        return cal.timeInMillis
     }
 
     fun requestUnlock(c: Context, pin: String): String {
@@ -54,9 +44,9 @@ object Gate {
         if (!Prefs.checkPin(c, pin)) { Alerts.event(c, "BAD_PIN", "wrong PIN on unlock request"); return "Wrong PIN." }
         val now = TrustedTime.now(c) ?: return "Can't verify the UK time yet. Connect to the internet and try again."
         if (Prefs.readyAt(c) != 0L && now < Prefs.unlockedUntil(c)) return describe(c)
-        val ready = nextDayFourteen(now)
+        val ready = now + DELAY_MS
         Prefs.setUnlock(c, ready, ready + WINDOW_MS)
-        Alerts.event(c, "UNLOCK_REQUESTED", "window opens 14:00 UK tomorrow (5 min)")
+        Alerts.event(c, "UNLOCK_REQUESTED", "window opens in 10 min (5 min long)")
         return describe(c)
     }
 

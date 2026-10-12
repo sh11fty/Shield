@@ -55,7 +55,37 @@ class MainActivity : Activity() {
         if (::heroTitle.isInitialized) {
             refresh()
             Thread { TrustedTime.syncIfStale(this); runOnUiThread { refresh() } }.start()
+            askHideConfirmation()
         }
+    }
+
+    private var askingHide = false
+
+    /** First run of the browser/VPN block: show exactly what will be hidden and ask once. After Confirm it cannot be undone without the PIN window. */
+    private fun askHideConfirmation() {
+        if (askingHide || Prefs.hideConfirmed(this) || !Enforcer.isOwner(this)) return
+        askingHide = true
+        Thread {
+            val apps = runCatching { Enforcer.pendingConfirmation(this) }.getOrDefault(emptyList())
+            runOnUiThread {
+                if (apps.isEmpty() || isFinishing) { askingHide = false; return@runOnUiThread }
+                AlertDialog.Builder(this)
+                    .setTitle("Hide these browsers and VPN apps?")
+                    .setMessage(
+                        "Harbor is about to hide ${apps.size} app(s):\n\n" + apps.joinToString("\n") +
+                            "\n\nChrome and Brave stay available. After you confirm, hidden apps can only be shown again by changing Harbor's settings inside the unlock window."
+                    )
+                    .setCancelable(false)
+                    .setPositiveButton("Confirm and hide") { _, _ ->
+                        Prefs.setHideConfirmed(this, true)
+                        Enforcer.applyAsync(this, "hide confirmed")
+                        askingHide = false
+                        toast("Confirmed. Hiding now.")
+                    }
+                    .setNegativeButton("Not now") { _, _ -> askingHide = false }
+                    .show()
+            }
+        }.start()
     }
 
     // ---------------------------------------------------------------- intro
@@ -126,7 +156,7 @@ class MainActivity : Activity() {
         pinField = Ui.input(this, "PIN (4+ digits)", "", InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD)
         unlock.addView(pinField)
         unlock.addView(Ui.button(this, "Set PIN") { toast(Gate.setPin(this, pinField.text.toString())); refresh() }, Ui.lp(this, 10))
-        unlock.addView(Ui.button(this, "Request unlock (14:00 UK tomorrow, 5 min)", Ui.Kind.SECONDARY) {
+        unlock.addView(Ui.button(this, "Request unlock (opens in 10 min, lasts 5 min)", Ui.Kind.SECONDARY) {
             toast(Gate.requestUnlock(this, pinField.text.toString())); refresh()
         }, Ui.lp(this, 8))
         unlock.addView(Ui.button(this, "Lock again now", Ui.Kind.SECONDARY) { Gate.lock(this); refresh() }, Ui.lp(this, 8))
@@ -194,7 +224,7 @@ class MainActivity : Activity() {
         // release / uninstall
         val danger = Ui.card(this).apply { background = Ui.rounded(this@MainActivity, Ui.CARD, 18, Ui.BAD) }
         danger.addView(Ui.title(this, "Release & uninstall"))
-        danger.addView(Ui.body(this, "The only way to uninstall. It works only inside the 5-minute window at 14:00 UK time, after you requested an unlock with your PIN the day before."), Ui.lp(this, 6, 10))
+        danger.addView(Ui.body(this, "The only way to uninstall. It works only inside the 5-minute window that opens 10 minutes after you request an unlock with your PIN."), Ui.lp(this, 6, 10))
         danger.addView(Ui.button(this, "Release & uninstall", Ui.Kind.DANGER) { releaseAndUninstall() })
         root.addView(danger, Ui.lp(this, 0, 12))
 
@@ -232,7 +262,7 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- actions
     private fun releaseAndUninstall() {
-        if (!Gate.isUnlocked(this)) { toast("Locked. Request an unlock with your PIN; the window opens at 14:00 UK time the next day for 5 minutes."); return }
+        if (!Gate.isUnlocked(this)) { toast("Locked. Request an unlock with your PIN; the window opens 10 minutes later and lasts 5 minutes."); return }
         AlertDialog.Builder(this)
             .setTitle("Release and uninstall?")
             .setMessage("This removes all protection and opens the uninstall prompt.")
@@ -303,11 +333,11 @@ WHAT IT DOES
 - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 - Night curfew (default 23:00-06:00 UK time): the Instagram and TikTok apps are hidden. Browsers are not affected.
-- Builds share one package and one fixed signing key. A newer build only installs when you run `adb install -r` from a computer; it replaces the old one and keeps Device Owner. The app never updates itself. Builds made before the fixed key (b1 to b10) use other package names and cannot be updated: release them first (PIN, then the next-day unlock).
+- Builds share one package and one fixed signing key. A newer build only installs when you run `adb install -r` from a computer; it replaces the old one and keeps Device Owner. The app never updates itself. Builds made before the fixed key (b1 to b10) use other package names and cannot be updated: release them first (PIN, then the 10-minute unlock).
 - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and takes the time from the internet (UK time) for the unlock window and curfew, so changing the phone's clock does nothing; if the UK time cannot be verified, everything stays locked. Installing from unknown sources stays allowed.
 
 WHAT IT MEANS FOR YOU
-- Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens at 14:00 UK time the NEXT day and lasts only 5 minutes. Open the app during those 5 minutes to make changes. Adding protection is always instant.
+- Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens 10 minutes later and lasts only 5 minutes (test build). Open the app during those 5 minutes to make changes. Adding protection is always instant.
 - That 5-minute window is also the ONLY way to uninstall Guardian: tap Release & uninstall inside it. If you miss it you must request again and wait another day.
 - Nothing can speed this up. If you forget the PIN, the only way out is a factory reset of the phone.
 - Work or school VPNs will stop working. Telegram and X apps stay hidden, even if you need them for something legitimate.
