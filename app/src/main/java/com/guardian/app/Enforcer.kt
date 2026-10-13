@@ -103,7 +103,7 @@ object Enforcer {
         val want = mutableSetOf(R_VPN, R_DNS, R_SAFE, R_USER, R_PROFILE)
         if (Prefs.strict(ctx)) want += listOf(R_RESET, R_ADB)
         for (r in MANAGED_RESTRICTIONS) runCatching { if (r in want) d.addUserRestriction(a, r) else d.clearUserRestriction(a, r) }
-        return "Restrictions: ${want.size} active (VPN config, DNS config, safe mode, extra users/profiles; sideloading and date/time are NOT restricted)"
+        return "Restrictions: ${want.size} active (VPN config, DNS config, safe mode, USB debugging, extra users/profiles; sideloading and date/time are NOT restricted)"
     }
 
     /** True when the active network claims internet but fails validation (strict private DNS that cannot resolve gives exactly this). */
