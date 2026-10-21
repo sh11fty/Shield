@@ -49,7 +49,6 @@ object Enforcer {
         if (!isOwner(ctx)) {
             out.append("NOT device owner: hiding apps, VPN/DNS locks and browser policies are inactive.")
             Prefs.setLastReport(ctx, out.toString())
-            RemoteList.refresh(ctx)
             return out.toString()
         }
         val d = dpm(ctx)
@@ -60,7 +59,6 @@ object Enforcer {
         out.append(hideApps(ctx, d, a)).append('\n')
         out.append(browserPolicies(ctx, d, a))
         Prefs.setLastReport(ctx, out.toString())
-        RemoteList.refresh(ctx)
         out.toString()
     }
 

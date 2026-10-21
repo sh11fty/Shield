@@ -58,14 +58,6 @@ object Prefs {
     fun curfewEnd(c: Context) = i(c, "curfew_end", 6)
     fun setCurfew(c: Context, start: Int, end: Int) =
         put(c) { putInt("curfew_start", start.coerceIn(0, 23)); putInt("curfew_end", end.coerceIn(0, 23)) }
-    const val DEFAULT_REMOTE = "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn/hosts"
-    fun remoteUrls(c: Context): List<String> =
-        s(c, "remote_urls", DEFAULT_REMOTE).split('\n').map { it.trim() }.filter { it.startsWith("https://") }
-    fun remoteUrlsRaw(c: Context) = s(c, "remote_urls", DEFAULT_REMOTE)
-    fun setRemoteUrls(c: Context, v: String) = put(c) { putString("remote_urls", v.trim()) }
-    fun remoteUpdatedAt(c: Context) = sp(c).getLong("remote_updated", 0L)
-    fun remoteCount(c: Context) = i(c, "remote_count", 0)
-    fun setRemoteState(c: Context, at: Long, count: Int) = put(c) { putLong("remote_updated", at); putInt("remote_count", count) }
 
     // ---- state ----
     fun hiddenByUs(c: Context): Set<String> = sp(c).getStringSet("hidden_by_us", emptySet())!!.toSet()

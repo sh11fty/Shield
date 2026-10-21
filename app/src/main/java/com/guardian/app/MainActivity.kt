@@ -36,7 +36,6 @@ class MainActivity : Activity() {
     private lateinit var etCurfewEnd: EditText
     private lateinit var etThreshold: EditText
     private lateinit var etDns: EditText
-    private lateinit var etRemote: EditText
 
     private val setupCmds: String
         get() = "adb shell dpm set-device-owner $packageName/com.guardian.app.GuardianAdminReceiver\n" +
@@ -180,12 +179,6 @@ class MainActivity : Activity() {
         set.addView(Ui.label(this, "Private DNS host"))
         etDns = Ui.input(this, "DNS host", Prefs.dnsHost(this))
         set.addView(etDns)
-        set.addView(Ui.label(this, "Online blocklist URLs (https, one per line, refreshed weekly)"))
-        etRemote = Ui.input(this, "https://…", Prefs.remoteUrlsRaw(this), InputType.TYPE_CLASS_TEXT, 2)
-        set.addView(etRemote)
-        set.addView(Ui.button(this, "Update online blocklist now", Ui.Kind.SECONDARY) {
-            Thread { val m = RemoteList.refresh(this, true); runOnUiThread { toast(m); refresh() } }.start()
-        }, Ui.lp(this, 10))
         set.addView(Ui.button(this, "Save settings") { saveSettings() }, Ui.lp(this, 8))
         root.addView(Ui.collapsible(this, "Settings", set, false), Ui.lp(this, 0, 12))
 
@@ -250,7 +243,6 @@ class MainActivity : Activity() {
         val ukText = if (ukNow == null) "Not verified. Connect to the internet." else
             java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.UK).apply { timeZone = TrustedTime.UK }.format(java.util.Date(ukNow))
         statusBox.addView(Ui.dotRow(this, ukNow != null, "UK time (internet)", ukText))
-        statusBox.addView(Ui.dotRow(this, null, RemoteList.status(this).removePrefix("Remote list: ").replaceFirstChar { it.uppercase() }, "Online blocklist"))
         val report = Prefs.lastReport(this).lines().filter { it.isNotBlank() }
         if (report.isNotEmpty()) statusBox.addView(Ui.body(this, report.joinToString("\n"), true, 12f), Ui.lp(this, 8))
 
@@ -280,19 +272,17 @@ class MainActivity : Activity() {
         val ce = etCurfewEnd.text.toString().toIntOrNull() ?: Prefs.curfewEnd(this)
         val th = etThreshold.text.toString().toIntOrNull() ?: Prefs.threshold(this)
         val dns = etDns.text.toString().trim().ifEmpty { Prefs.DEFAULT_DNS }
-        val remote = etRemote.text.toString().trim()
 
         val weakens = (Prefs.strict(this) && !newStrict) ||
             (Prefs.shield(this) && !newShield) ||
             (Prefs.curfewOn(this) && (!newCurfew || cs != Prefs.curfewStart(this) || ce != Prefs.curfewEnd(this))) ||
             th > Prefs.threshold(this) ||
-            dns != Prefs.dnsHost(this) ||
-            (remote != Prefs.remoteUrlsRaw(this).trim() && Prefs.remoteUrlsRaw(this).isNotBlank())
+            dns != Prefs.dnsHost(this)
         if (weakens && !Gate.isUnlocked(this)) { toast("Locked: that change weakens protection. Unlock first."); return }
 
         Prefs.setStrict(this, newStrict); Prefs.setShield(this, newShield)
         Prefs.setCurfewOn(this, newCurfew); Prefs.setCurfew(this, cs, ce)
-        Prefs.setThreshold(this, th); Prefs.setDnsHost(this, dns); Prefs.setRemoteUrls(this, remote)
+        Prefs.setThreshold(this, th); Prefs.setDnsHost(this, dns)
         if (weakens) Alerts.event(this, "SETTINGS_WEAKENED", "settings changed during unlock window")
         Enforcer.applyAsync(this, "settings saved")
         toast("Saved"); refresh()
