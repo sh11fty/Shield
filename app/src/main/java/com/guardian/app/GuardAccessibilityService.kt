@@ -20,14 +20,9 @@ class GuardAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private val worker = HandlerThread("guard-scan").apply { start() }
     private val bg = Handler(worker.looper)
-    @Volatile private var scanning = false
-    private var lastScan = 0L
+    @Volatile private var checking = false
+    private var lastCheck = 0L
     private var lastHitAt = 0L
-    private var cfgAt = 0L
-    private var domains: List<String> = emptyList()
-    private var strong: List<String> = emptyList()
-    private var mild: List<String> = emptyList()
-    private var threshold = 3
     private var netCb: ConnectivityManager.NetworkCallback? = null
 
     private val pkgReceiver = object : BroadcastReceiver() {
@@ -46,7 +41,7 @@ class GuardAccessibilityService : AccessibilityService() {
         Enforcer.applyAsync(this, "a11y connected")
     }
 
-    /** Runs on the main thread, so it only does cheap checks; the real scan happens on a background thread. */
+    /** Runs on the main thread: app-open blocking is a cheap check; the Settings check runs on a background thread. */
     override fun onAccessibilityEvent(e: AccessibilityEvent?) {
         e ?: return
         val pkg = e.packageName?.toString() ?: return
@@ -63,16 +58,14 @@ class GuardAccessibilityService : AccessibilityService() {
             }
             return
         }
-        // Light mode: only app-open blocking and the Settings tamper check; no page-text reading.
-        val light = !Prefs.scanText(this)
-        if (light && !(type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && pkg in SETTINGS && Prefs.shield(this))) return
+        // Only the Settings self-shield check runs; no other screen content is read.
+        if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || pkg !in SETTINGS || !Prefs.shield(this)) return
         val now = SystemClock.uptimeMillis()
-        val gap = if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || type == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) 500L else 2500L
-        if (scanning || now - lastScan < gap) return
-        lastScan = now
-        scanning = true
+        if (checking || now - lastCheck < 500L) return
+        lastCheck = now
+        checking = true
         bg.post {
-            try { scan(pkg) } catch (_: Throwable) { } finally { scanning = false }
+            try { checkSettings(pkg) } catch (_: Throwable) { } finally { checking = false }
         }
     }
 
@@ -90,27 +83,14 @@ class GuardAccessibilityService : AccessibilityService() {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
     }.getOrDefault(pkg)
 
-    private fun refreshConfig() {
-        val now = System.currentTimeMillis()
-        if (now - cfgAt < 30_000L && domains.isNotEmpty()) return
-        domains = Prefs.domains(this); strong = Prefs.strong(this); mild = Prefs.mild(this); threshold = Prefs.threshold(this)
-        cfgAt = now
-    }
-
-    private fun scan(pkg: String) {
+    private fun checkSettings(pkg: String) {
         val root = rootInActiveWindow ?: return
         val sb = StringBuilder()
         collect(root, sb, intArrayOf(0), 0, SystemClock.uptimeMillis() + 150L)
-        val text = sb.toString()
-        if (pkg in SETTINGS && Prefs.shield(this) && text.lowercase().contains("guardian")) {
+        if (sb.toString().lowercase().contains("guardian")) {
             performGlobalAction(GLOBAL_ACTION_HOME)
-            Alerts.event(this, "TAMPER", "opened Guardian's own settings page")
-            return
+            Alerts.event(this, "TAMPER", "opened Guardian's own settings page in $pkg")
         }
-        if (!Prefs.scanText(this)) return
-        refreshConfig()
-        val hit = Matcher.evaluate(text, domains, strong, mild, threshold)
-        if (hit != null) onHit(pkg, hit)
     }
 
     /** Bounded walk (each child lookup is a cross-process call): at most 300 nodes, depth 25, 150 ms. */
@@ -120,16 +100,6 @@ class GuardAccessibilityService : AccessibilityService() {
         n.text?.let { sb.append(it).append(' ') }
         n.contentDescription?.let { sb.append(it).append(' ') }
         for (i in 0 until n.childCount) collect(n.getChild(i), sb, count, depth + 1, deadline)
-    }
-
-    private fun onHit(pkg: String, hit: Hit) {
-        performGlobalAction(GLOBAL_ACTION_HOME)
-        val now = System.currentTimeMillis()
-        if (now - lastHitAt < 4000) return
-        lastHitAt = now
-        Prefs.recordHit(this)
-        Alerts.event(this, "BLOCKED", "${hit.kind} in $pkg")
-        showBlock("Blocked ${hit.kind} in ${pkg.substringAfterLast('.')}")
     }
 
     private fun showBlock(reason: String) {

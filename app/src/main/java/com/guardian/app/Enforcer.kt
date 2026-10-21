@@ -101,7 +101,7 @@ object Enforcer {
     // ---------- user restrictions ----------
     private fun restrictions(ctx: Context, d: DevicePolicyManager, a: ComponentName): String {
         val want = mutableSetOf(R_VPN, R_DNS, R_SAFE, R_USER, R_PROFILE)
-        if (Prefs.strict(ctx)) want += listOf(R_RESET, R_ADB)
+        if (Prefs.strict(ctx)) want += listOf(R_RESET)
         for (r in MANAGED_RESTRICTIONS) runCatching { if (r in want) d.addUserRestriction(a, r) else d.clearUserRestriction(a, r) }
         return "Restrictions: ${want.size} active (VPN config, DNS config, safe mode, extra users/profiles; sideloading and date/time are NOT restricted)"
     }
@@ -185,6 +185,7 @@ object Enforcer {
             for (ri in pm.queryIntentServices(Intent("android.net.VpnService"), 0)) {
                 val p = ri.serviceInfo.packageName
                 val ai = apps.firstOrNull { it.packageName == p }
+                if (p in Blocklists.NOT_VPN) continue
                 if (ai == null || !isSystemApp(ai)) add(p, "vpn")
             }
         }
@@ -192,6 +193,7 @@ object Enforcer {
             if (isSystemApp(ai)) continue
             val p = ai.packageName
             val label = labels[p] ?: p
+            if (p in Blocklists.NOT_VPN) continue
             if (Blocklists.VPN_REGEX.containsMatchIn(label) || Blocklists.VPN_REGEX.containsMatchIn(p)) add(p, "vpn-name")
             if (Blocklists.CLONE_REGEX.containsMatchIn(label) || Blocklists.CLONE_REGEX.containsMatchIn(p)) add(p, "cloner")
         }

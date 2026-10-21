@@ -44,8 +44,6 @@ object Prefs {
     fun setThreshold(c: Context, v: Int) = put(c) { putInt("threshold", v.coerceIn(1, 10)) }
     fun strict(c: Context) = b(c, "strict", false)
     fun setStrict(c: Context, v: Boolean) = put(c) { putBoolean("strict", v) }
-    fun scanText(c: Context) = b(c, "scan_text", false)
-    fun setScanText(c: Context, v: Boolean) = put(c) { putBoolean("scan_text", v) }
     fun dnsBad(c: Context) = i(c, "dns_bad", 0)
     fun setDnsBad(c: Context, v: Int) = put(c) { putInt("dns_bad", v) }
     fun dnsFallbackUntil(c: Context) = sp(c).getLong("dns_fallback_until", 0L)

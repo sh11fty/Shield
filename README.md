@@ -12,11 +12,11 @@
 > - Reads the on-screen text and web addresses of EVERY app through an accessibility service, and sends you to the home screen with a 15-second pause screen when it sees blocked sites or adult keywords. This is processed on the phone only.
 > - Downloads a public adult-domain list from GitHub every week and checks pages against it.
 > - Night curfew (default 23:00-06:00 UK time): the Instagram and TikTok apps are hidden. Browsers are not affected.
-> - Builds share one package and one fixed signing key. A newer build only installs when you run `adb install -r` from a computer; it replaces the old one and keeps Device Owner. The app never updates itself. Builds made before the fixed key (b1 to b10) use other package names and cannot be updated: release them first (PIN, then the 10-minute unlock).
-> - Hides clone/virtual-space and root-tool apps, scans every newly installed app, blocks safe mode, adding users and work profiles, and takes the time from the internet (UK time) for the unlock window and curfew, so changing the phone's clock does nothing; if the UK time cannot be verified, everything stays locked. Installing from unknown sources stays allowed.
+> - Builds share one package and one fixed signing key. A newer build only installs when you run `adb install -r` from a computer; it replaces the old one and keeps Device Owner. The app never updates itself. Builds made before the fixed key (b1 to b10) use other package names and cannot be updated: release them first (PIN, then the 5-minute unlock).
+> - Hides clone/virtual-space and root-tool apps, checks every newly installed app, blocks safe mode, adding users and work profiles, and takes the time from the internet (UK time) for the unlock window and curfew, so changing the phone's clock does nothing; if the UK time cannot be verified, everything stays locked. Installing from unknown sources stays allowed.
 >
 > WHAT IT MEANS FOR YOU
-> - Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens 10 minutes later and lasts only 5 minutes (test build). Open the app during those 5 minutes to make changes. Adding protection is always instant.
+> - Any change that weakens protection (removing a block, turning a protection off, changing the PIN) needs your PIN. Typing the PIN does not unlock anything straight away: it schedules a window that opens 5 minutes later and lasts only 5 minutes (test build). Open the app during those 5 minutes to make changes. Adding protection is always instant.
 > - That 5-minute window is also the ONLY way to uninstall Guardian: tap Release & uninstall inside it. If you miss it you must request again and wait another day.
 > - Nothing can speed this up. If you forget the PIN, the only way out is a factory reset of the phone.
 > - Work or school VPNs will stop working. Telegram and X apps stay hidden, even if you need them for something legitimate.
@@ -48,7 +48,7 @@ route, while leaving Android Settings usable (per your request; see "Strict mode
    adb shell pm grant <package> android.permission.WRITE_SECURE_SETTINGS
    ```
 3. Open Guardian, tap **Apply protections now** (it enables its own accessibility service).
-4. Set a **PIN**. Typing it only schedules a 5-minute window that opens 10 minutes later (also the only way to uninstall), so pick one you cannot talk yourself into using on impulse.
+4. Set a **PIN**. Typing it only schedules a 5-minute window that opens 5 minutes later (also the only way to uninstall), so pick one you cannot talk yourself into using on impulse.
 
 ## What it does
 | Layer | How |
@@ -59,16 +59,16 @@ route, while leaving Android Settings usable (per your request; see "Strict mode
 | DNS | Private DNS locked to CleanBrowsing Adult Filter (blocks porn; CleanBrowsing also applies SafeSearch to search engines at DNS level); `no_config_private_dns`; restored if changed |
 | Browsers | Chrome and Brave allowed (all others hidden). Managed policy: URL blocklist (~304 domains, full list in `DOMAINS.txt`), incognito off, DoH off, dev tools off (no forced SafeSearch; history and cookies can be cleared) |
 | Online blocklist | Downloads a public adult-domain list (StevenBlack porn hosts, ~60k+ domains) weekly and checks every URL/domain seen on screen against it. Rejects shrunken or tiny downloads; changing the URL needs the unlock. Chrome policy keeps the built-in ~300 (policy size limit); DNS filtering covers the long tail |
-| Everything else | Accessibility service scans on-screen text + URLs in **all** apps: blocked domain = instant block, strong keyword = block, 3 mild words = block |
+| Everything else | Not blocked. Harbor does not read on-screen text in any app (DNS, VPN and site blocks cover the web)
 
 ## The 10 extra protections beyond the brief
-1. **Delayed PIN unlock**: any change that weakens protection needs the PIN, and typing it only opens a window 10 minutes later for 5 minutes, which is also the only way to uninstall. Strengthening is always free.
+1. **Delayed PIN unlock**: any change that weakens protection needs the PIN, and typing it only opens a window 5 minutes later for 5 minutes, which is also the only way to uninstall. Strengthening is always free.
 2. **Internet time (UK)**: the unlock window and curfew use time from `uk.pool.ntp.org` (fallbacks: Cloudflare, Google, gov.uk), not the phone clock, so changing the phone's date/time does nothing. If the time can't be verified the app stays locked.
 3. **Self-healing**: 5 min alarm chain + 15 min persisted job + boot receiver re-apply everything; accessibility is re-enabled via `WRITE_SECURE_SETTINGS` if switched off; DNS restored if changed.
 4. **Browser lockdown**: incognito off, DoH off, dev tools off (Chrome / Brave managed config).
 5. **Browser allow-list** (Chrome + Brave): every other browser (Firefox, Opera, DuckDuckGo, Samsung...) is hidden, since they can't be policy-managed.
-6. **Safe-mode / extra-user blocks**: `no_safe_boot` (safe mode would disable the accessibility scanner), `no_add_user`, `no_add_managed_profile`.
-7. **Install watcher**: a new app is scanned the moment it is installed (VPNs, cloners, Telegram clients, browsers get hidden within seconds).
+6. **Safe-mode / extra-user blocks**: `no_safe_boot` (safe mode would disable the accessibility service), `no_add_user`, `no_add_managed_profile`.
+7. **Install watcher**: a new app is checked the moment it is installed (VPNs, cloners, Telegram clients, browsers get hidden within seconds).
 8. **Night curfew** (default 23:00-06:00 UK time): Instagram and TikTok apps are hidden. Browsers are not affected.
 9. **Local event log**: blocks, VPN attempts, accessibility/DNS tampering and unlock requests are listed on the main screen. Nothing is sent anywhere.
 10. **Block screen with friction**: 15 s forced pause, no back button, running block counter. Plus cloner/virtual-space app hiding (Parallel Space, Island, Lucky Patcher, Magisk...).
@@ -80,4 +80,4 @@ Optional: **Self-shield** (kicks you out of Settings pages that show "Guardian")
 - `adb` while debugging is on: with the device owner set it cannot be removed by adb, but Strict mode also blocks enabling debugging.
 - A second phone/laptop, or mobile data on another device. Nothing on this phone can stop that.
 - Because Settings is open, you can disable the accessibility service (it is re-enabled within 5 minutes), and turn on a hotspot-sharing device.
-- Apps that bring their own browser engine and are not VPNs (e.g. in-app browsers) are only covered by the on-screen text scanner, not the URL blocklist.
+- Apps that bring their own browser engine are not covered by the URL blocklist, since on-screen text is not read.

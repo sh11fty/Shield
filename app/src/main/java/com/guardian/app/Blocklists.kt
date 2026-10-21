@@ -121,6 +121,9 @@ object Blocklists {
         RegexOption.IGNORE_CASE
     )
 
+    /** Packages never treated as VPNs (Brave declares a VpnService for its shields). */
+    val NOT_VPN: List<String> = listOf("com.brave.browser", "com.brave.browser_beta", "com.brave.browser_nightly")
+
     /** VPN / proxy / tunnel / Tor / DNS-changer apps, matched against label and package name. */
     val VPN_REGEX = Regex(
         "vpn|proxy|proxies|tunnel|\\btor\\b|orbot|onion|psiphon|wireguard|openvpn|shadowsocks|v2ray|xray|trojan|" +
