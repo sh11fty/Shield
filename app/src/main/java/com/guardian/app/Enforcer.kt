@@ -237,10 +237,12 @@ object Enforcer {
         val (want, reasons) = desiredHidden(ctx)
         val mine = Prefs.hiddenByUs(ctx).toMutableSet()
         var newlyHidden = 0
+        val failures = mutableListOf<String>()
         val confirmed = Prefs.hideConfirmed(ctx)
         for (p in want) {
             if (!confirmed && reasons[p] in CONFIRM_REASONS) continue
             val ok = runCatching { d.setApplicationHidden(a, p, true) }.getOrDefault(false)
+            if (!ok) failures.add(p)
             if (ok && mine.add(p)) {
                 newlyHidden++
                 val why = reasons[p]
@@ -251,7 +253,8 @@ object Enforcer {
             if (runCatching { d.setApplicationHidden(a, p, false) }.getOrDefault(false)) mine.remove(p)
         }
         Prefs.setHiddenByUs(ctx, mine)
-        return "${if (confirmed) "" else "Browser/VPN hiding waits for your confirmation in the app. "}Apps hidden: ${mine.size} (+$newlyHidden new)${if (Curfew.active(ctx)) " [CURFEW ACTIVE]" else ""}"
+        if (failures.isNotEmpty()) Alerts.event(ctx, "APP_HIDE_FAILED", failures.take(8).joinToString(", "))
+        return "${if (confirmed) "" else "Browser/VPN hiding waits for your confirmation in the app. "}Apps hidden: ${mine.size} (+$newlyHidden new); hide failures: ${failures.size} (${failures.take(3).joinToString(", ")})${if (Curfew.active(ctx)) " [CURFEW ACTIVE]" else ""}"
     }
 
     // ---------- browser managed policies ----------
