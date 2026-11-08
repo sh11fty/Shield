@@ -48,6 +48,7 @@ class GuardAccessibilityService : AccessibilityService() {
         if (pkg == packageName || pkg in IGNORED) return
         val type = e.eventType
         if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && isBlockedApp(pkg)) {
+            Enforcer.applyAsync(applicationContext, "blocked app attempted launch")
             performGlobalAction(GLOBAL_ACTION_HOME)
             val t = System.currentTimeMillis()
             if (t - lastHitAt >= 4000) {
@@ -72,11 +73,13 @@ class GuardAccessibilityService : AccessibilityService() {
     private val blockedCache = HashMap<String, Boolean>()
 
     /** Package match first, then the app's visible label, so renamed mods are still caught. Cached per package. */
-    private fun isBlockedApp(pkg: String): Boolean = blockedCache.getOrPut(pkg) {
-        if (Blocklists.NEVER_HIDE_PREFIXES.any { pkg == it || pkg.startsWith(if (it.endsWith(".")) it else "$it.") }) return@getOrPut false
-        if (Prefs.list(this, Prefs.K_HIDE).contains(pkg)) return@getOrPut true
+    private fun isBlockedApp(pkg: String): Boolean {
+        if (Enforcer.isProtectedPackage(this, pkg)) return false
+        if (Prefs.list(this, Prefs.K_HIDE).contains(pkg)) return true
+        return blockedCache.getOrPut(pkg) {
         if (Blocklists.HIDE_PACKAGE_PREFIXES.any { pkg.startsWith(it) } || Blocklists.OPEN_BLOCK_REGEX.containsMatchIn(pkg)) return@getOrPut true
         Blocklists.HIDE_LABEL_REGEX.containsMatchIn(labelOf(pkg))
+        }
     }
 
     private fun labelOf(pkg: String): String = runCatching {
