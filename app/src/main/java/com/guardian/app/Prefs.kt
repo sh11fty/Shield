@@ -62,6 +62,8 @@ object Prefs {
     // ---- state ----
     fun hiddenByUs(c: Context): Set<String> = sp(c).getStringSet("hidden_by_us", emptySet())!!.toSet()
     fun setHiddenByUs(c: Context, v: Set<String>) = put(c) { putStringSet("hidden_by_us", v) }
+    fun suspendedByUs(c: Context): Set<String> = sp(c).getStringSet("suspended_by_us", emptySet())!!.toSet()
+    fun setSuspendedByUs(c: Context, v: Set<String>) = put(c) { putStringSet("suspended_by_us", v) }
     fun dnsEverSet(c: Context) = b(c, "dns_set", false)
     fun setDnsEverSet(c: Context) = put(c) { putBoolean("dns_set", true) }
     fun a11yEverOn(c: Context) = b(c, "a11y_on", false)
