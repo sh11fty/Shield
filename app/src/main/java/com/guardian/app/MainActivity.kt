@@ -188,7 +188,10 @@ class MainActivity : Activity() {
         listEditor(lists, "Extra blocked domains", Prefs.K_DOMAINS, false)
         listEditor(lists, "Extra strong keywords (1 hit blocks)", Prefs.K_STRONG, false)
         listEditor(lists, "Extra mild keywords (3 hits block)", Prefs.K_MILD, false)
-        listEditor(lists, "Extra packages to hide", Prefs.K_HIDE, false)
+        lists.addView(Ui.button(this, "Manage blocked apps (search and select)") {
+            startActivity(Intent(this, AppBlocklistActivity::class.java))
+        }, Ui.lp(this, 12))
+        lists.addView(Ui.body(this, "Choose installed apps by name, view hidden status, or add package IDs manually."), Ui.lp(this, 6))
         listEditor(lists, "Extra curfew-only apps", Prefs.K_CURFEW_APPS, false)
         listEditor(lists, "Extra ALLOWED browsers (weakens: needs unlock)", Prefs.K_BROWSER, true)
         root.addView(Ui.collapsible(this, "Block lists", lists, false), Ui.lp(this, 0, 12))
