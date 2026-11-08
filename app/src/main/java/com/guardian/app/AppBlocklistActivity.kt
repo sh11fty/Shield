@@ -135,7 +135,7 @@ class AppBlocklistActivity : Activity() {
         for (app in filtered) {
             val builtIn = builtin(app)
             val protected = Enforcer.isProtectedPackage(this, app.pkg)
-            val isHidden = hidden(app.pkg)
+            val statusText = Enforcer.appBlockStatus(this, app.pkg)
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, Ui.dp(this@AppBlocklistActivity, 8), 0, Ui.dp(this@AppBlocklistActivity, 8))
@@ -149,9 +149,9 @@ class AppBlocklistActivity : Activity() {
             text.addView(Ui.body(this, app.pkg, true, 11f))
             val status = when {
                 protected -> "Protected system app"
-                isHidden -> "Hidden · cannot launch"
-                builtIn -> "Built-in block · enforcement pending"
-                app.pkg in pending -> "Selected · apply to block"
+                statusText == "Hidden + suspended" || statusText == "Hidden" || statusText.startsWith("Suspended") -> statusText
+                builtIn -> "Built-in block · " + statusText
+                app.pkg in pending -> "Selected · " + statusText
                 else -> "Not blocked"
             }
             text.addView(Ui.body(this, status, true, 11f))
