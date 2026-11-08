@@ -233,28 +233,72 @@ object Enforcer {
         }.sorted()
     }
 
+    /** Returns the effective Device Owner state, not just the requested blocklist state. */
+    fun appBlockStatus(ctx: Context, pkg: String): String {
+        if (!isOwner(ctx)) return "Device Owner inactive"
+        if (neverHide(ctx, pkg)) return "Protected app"
+        val d = dpm(ctx)
+        val a = admin(ctx)
+        val hidden = runCatching { d.isApplicationHidden(a, pkg) }.getOrDefault(false)
+        val suspended = runCatching { d.isPackageSuspended(a, pkg) }.getOrDefault(false)
+        return when {
+            hidden && suspended -> "Hidden + suspended"
+            hidden -> "Hidden"
+            suspended -> "Suspended · cannot launch"
+            else -> "Not restricted · accessibility fallback"
+        }
+    }
+
     private fun hideApps(ctx: Context, d: DevicePolicyManager, a: ComponentName): String {
         val (want, reasons) = desiredHidden(ctx)
         val mine = Prefs.hiddenByUs(ctx).toMutableSet()
+        val suspendedByUs = Prefs.suspendedByUs(ctx).toMutableSet()
+        val confirmed = Prefs.hideConfirmed(ctx)
+        val targets = want.filterNot { !confirmed && reasons[it] in CONFIRM_REASONS }
+            .filterNot { neverHide(ctx, it) }.toSet()
         var newlyHidden = 0
         val failures = mutableListOf<String>()
-        val confirmed = Prefs.hideConfirmed(ctx)
-        for (p in want) {
-            if (!confirmed && reasons[p] in CONFIRM_REASONS) continue
+        val installed = ctx.packageManager.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES)
+            .filter { (it.flags and ApplicationInfo.FLAG_INSTALLED) != 0 }
+            .map { it.packageName }.toSet()
+
+        // Suspend first: a package that cannot be hidden should still be unlaunchable.
+        // Batch calls may partially fail; verify each package afterwards.
+        val eligible = targets.intersect(installed)
+        if (eligible.isNotEmpty()) {
+            runCatching { d.setPackagesSuspended(a, eligible.toTypedArray(), true) }
+        }
+        for (p in targets) {
+            if (p in installed) {
+                val suspended = runCatching { d.isPackageSuspended(a, p) }.getOrDefault(false)
+                if (suspended) suspendedByUs.add(p)
+            }
             val ok = runCatching { d.setApplicationHidden(a, p, true) }.getOrDefault(false)
-            if (!ok) failures.add(p)
             if (ok && mine.add(p)) {
                 newlyHidden++
-                val why = reasons[p]
-                if (why == "vpn" || why == "vpn-name" || why == "cloner") Alerts.event(ctx, "APP_HIDDEN", "$p ($why)")
+                if (reasons[p] in setOf("vpn", "vpn-name", "cloner"))
+                    Alerts.event(ctx, "APP_HIDDEN", "$p (${reasons[p]})")
             }
+            // Packages not installed yet cannot be suspended. They remain in the
+            // persistent custom blocklist and are checked again on installation.
+            if (p in installed && !ok &&
+                !runCatching { d.isPackageSuspended(a, p) }.getOrDefault(false)) failures.add(p)
         }
-        for (p in mine - want) {
+        for (p in mine - targets) {
             if (runCatching { d.setApplicationHidden(a, p, false) }.getOrDefault(false)) mine.remove(p)
         }
+        val releaseSuspended = suspendedByUs - targets
+        if (releaseSuspended.isNotEmpty()) {
+            runCatching { d.setPackagesSuspended(a, releaseSuspended.toTypedArray(), false) }
+            for (p in releaseSuspended) {
+                if (!runCatching { d.isPackageSuspended(a, p) }.getOrDefault(true)) suspendedByUs.remove(p)
+            }
+        }
         Prefs.setHiddenByUs(ctx, mine)
-        if (failures.isNotEmpty()) Alerts.event(ctx, "APP_HIDE_FAILED", failures.take(8).joinToString(", "))
-        return "${if (confirmed) "" else "Browser/VPN hiding waits for your confirmation in the app. "}Apps hidden: ${mine.size} (+$newlyHidden new); hide failures: ${failures.size} (${failures.take(3).joinToString(", ")})${if (Curfew.active(ctx)) " [CURFEW ACTIVE]" else ""}"
+        Prefs.setSuspendedByUs(ctx, suspendedByUs)
+        if (failures.isNotEmpty()) Alerts.event(ctx, "APP_BLOCK_FAILED", failures.take(8).joinToString(", "))
+        return "Apps hidden: ${mine.size} (+$newlyHidden); suspended: ${suspendedByUs.size}; unprotected installed targets: ${failures.size}" +
+            if (failures.isNotEmpty()) " (${failures.take(3).joinToString(", ")})" else ""
     }
 
     // ---------- browser managed policies ----------
@@ -291,6 +335,9 @@ object Enforcer {
         val d = dpm(ctx)
         val a = admin(ctx)
         for (r in MANAGED_RESTRICTIONS) runCatching { d.clearUserRestriction(a, r) }
+        val suspended = Prefs.suspendedByUs(ctx)
+        if (suspended.isNotEmpty()) runCatching { d.setPackagesSuspended(a, suspended.toTypedArray(), false) }
+        Prefs.setSuspendedByUs(ctx, emptySet())
         for (p in Prefs.hiddenByUs(ctx)) runCatching { d.setApplicationHidden(a, p, false) }
         Prefs.setHiddenByUs(ctx, emptySet())
         for (p in Blocklists.MANAGED_BROWSERS) runCatching { d.setApplicationRestrictions(a, p, Bundle()) }
