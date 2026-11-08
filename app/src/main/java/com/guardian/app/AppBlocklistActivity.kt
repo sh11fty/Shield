@@ -52,8 +52,8 @@ class AppBlocklistActivity : Activity() {
         val pm = packageManager
         val names = LinkedHashMap<String, ApplicationInfo?>()
         @Suppress("DEPRECATION")
-        val installed = pm.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES)
-        for (info in installed) {
+        val installedApps = pm.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES)
+        for (info in installedApps) {
             if (installed(info) || info.packageName in Prefs.hiddenByUs(this)) names[info.packageName] = info
         }
         for (pkg in Prefs.list(this, Prefs.K_HIDE) + Prefs.hiddenByUs(this)) {
