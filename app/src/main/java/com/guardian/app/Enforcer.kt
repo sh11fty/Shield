@@ -158,6 +158,8 @@ object Enforcer {
         return Blocklists.NEVER_HIDE_PREFIXES.any { it != "android" && (pkg == it || pkg.startsWith(if (it.endsWith(".")) it else "$it.")) }
     }
 
+    fun isProtectedPackage(ctx: Context, pkg: String): Boolean = neverHide(ctx, pkg)
+
     private fun desiredHidden(ctx: Context): Pair<Set<String>, Map<String, String>> {
         val pm = ctx.packageManager
         val reasons = LinkedHashMap<String, String>()
