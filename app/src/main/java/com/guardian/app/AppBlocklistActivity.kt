@@ -147,7 +147,9 @@ class AppBlocklistActivity : Activity() {
             val text = Ui.column(this)
             text.addView(Ui.title(this, app.name, 15f))
             text.addView(Ui.body(this, app.pkg, true, 11f))
+            val installedNow = app.info != null && installed(app.info)
             val status = when {
+                !installedNow && (app.pkg in pending || builtIn) -> "Permanent block saved · re-block on reinstall"
                 protected -> "Protected system app"
                 statusText == "Hidden + suspended" || statusText == "Hidden" || statusText.startsWith("Suspended") -> statusText
                 builtIn -> "Built-in block · " + statusText
